@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import 'screens/splash_screen.dart';
 
@@ -15,12 +16,23 @@ class CentralizadoApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const primaryBlue = Color(0xFF2D5BD1);
+    final textTheme = GoogleFonts.soraTextTheme();
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'App EIUM',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: primaryBlue),
+        textTheme: textTheme,
+        appBarTheme: AppBarTheme(
+          titleTextStyle: textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: const Color(0xFF0F1B2D),
+          ),
+          iconTheme: const IconThemeData(color: Color(0xFF0F1B2D)),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+        ),
         useMaterial3: true,
       ),
       home: const SplashScreen(),

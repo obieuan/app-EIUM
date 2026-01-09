@@ -1,19 +1,1270 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
-class HomeScreen extends StatelessWidget {
+import '../models/checkin_result.dart';
+import '../models/challenge_summary.dart';
+import '../models/event_summary.dart';
+import '../models/user_profile.dart';
+import '../models/weekly_challenge.dart';
+import '../services/api_exceptions.dart';
+import '../services/auth_service.dart';
+import '../services/challenge_service.dart';
+import '../services/events_service.dart';
+import '../services/profile_service.dart';
+
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('App EIUM'),
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  final AuthService _authService = AuthService();
+  final ProfileService _profileService = ProfileService();
+  final EventsService _eventsService = EventsService();
+  final ChallengeService _challengeService = ChallengeService();
+
+  UserProfile? _profile;
+  List<EventSummary> _todayEvents = [];
+  List<EventSummary> _upcomingEvents = [];
+  int _hurraBalance = 0;
+  int _antorchaBalance = 0;
+  int _weeklyRequirement = 1;
+  List<WeeklyChallenge> _weeklyChallenges = [];
+  bool _isCheckingIn = false;
+  String? _errorMessage;
+  bool _isLoading = true;
+  int _selectedIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDashboard();
+  }
+
+  Future<void> _loadDashboard() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    final session = await _authService.getValidSession();
+    final token = session?.idToken;
+
+    if (token == null || token.isEmpty) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'No hay sesion activa.';
+      });
+      return;
+    }
+    if (kDebugMode) {
+      debugPrint('API DEBUG token_length=${token.length}');
+    }
+
+    try {
+      final results = await Future.wait([
+        _profileService.fetchProfile(token),
+        _eventsService.fetchEvents(token),
+        _challengeService.fetchSummary(token),
+        _challengeService.fetchWeeklyChallenges(token),
+      ]);
+
+      final profile = results[0] as UserProfile?;
+      final events = results[1] as List<EventSummary>;
+      final challenges = results[2] as ChallengeSummary;
+      final weeklyChallenges = results[3] as List<WeeklyChallenge>;
+
+      final todayEvents = _filterTodayEvents(events);
+      final upcomingEvents = _filterUpcomingEvents(events);
+
+      final fallbackHurra = profile?.points ?? 0;
+      final hurraValue =
+          challenges.permissionDenied ? fallbackHurra : challenges.hurraTotal;
+      final antorchaValue =
+          challenges.permissionDenied ? 0 : challenges.antorchaTotal;
+
+      setState(() {
+        _profile = profile;
+        _todayEvents = todayEvents;
+        _upcomingEvents = upcomingEvents;
+        _hurraBalance = hurraValue;
+        _antorchaBalance = antorchaValue;
+        _weeklyRequirement = challenges.weeklyRequirement;
+        _weeklyChallenges = weeklyChallenges;
+        _isLoading = false;
+      });
+    } on TokenExpiredException {
+      final refreshed = await _authService.refreshSession();
+      final refreshedToken = refreshed?.idToken;
+      if (refreshedToken == null || refreshedToken.isEmpty) {
+        await _authService.signOut();
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'Tu sesion expiro. Inicia sesion de nuevo.';
+        });
+        return;
+      }
+
+      try {
+        final results = await Future.wait([
+          _profileService.fetchProfile(refreshedToken),
+          _eventsService.fetchEvents(refreshedToken),
+          _challengeService.fetchSummary(refreshedToken),
+          _challengeService.fetchWeeklyChallenges(refreshedToken),
+        ]);
+
+        final profile = results[0] as UserProfile?;
+        final events = results[1] as List<EventSummary>;
+        final challenges = results[2] as ChallengeSummary;
+        final weeklyChallenges = results[3] as List<WeeklyChallenge>;
+
+        final todayEvents = _filterTodayEvents(events);
+        final upcomingEvents = _filterUpcomingEvents(events);
+
+        final fallbackHurra = profile?.points ?? 0;
+        final hurraValue = challenges.permissionDenied
+            ? fallbackHurra
+            : challenges.hurraTotal;
+        final antorchaValue =
+            challenges.permissionDenied ? 0 : challenges.antorchaTotal;
+
+        setState(() {
+          _profile = profile;
+          _todayEvents = todayEvents;
+          _upcomingEvents = upcomingEvents;
+          _hurraBalance = hurraValue;
+          _antorchaBalance = antorchaValue;
+          _weeklyRequirement = challenges.weeklyRequirement;
+          _weeklyChallenges = weeklyChallenges;
+          _isLoading = false;
+        });
+      } catch (error) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'No se pudo cargar el perfil.';
+        });
+      }
+    } catch (error) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'No se pudo cargar la informacion.';
+      });
+    }
+  }
+
+  Future<void> _handleCheckin(WeeklyChallenge challenge) async {
+    if (_isCheckingIn) {
+      return;
+    }
+
+    setState(() {
+      _isCheckingIn = true;
+    });
+
+    final session = await _authService.getValidSession();
+    final token = session?.idToken;
+    if (token == null || token.isEmpty) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isCheckingIn = false;
+      });
+      _showSnackBar('No hay sesion activa.');
+      return;
+    }
+
+    try {
+      final result = await _challengeService.checkin(token, date: DateTime.now());
+      if (!mounted) {
+        return;
+      }
+      _showSnackBar(_checkinMessage(result));
+      await _loadDashboard();
+    } on TokenExpiredException {
+      if (!mounted) {
+        return;
+      }
+      _showSnackBar('Tu sesion expiro. Inicia sesion de nuevo.');
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      _showSnackBar('No se pudo registrar el check-in.');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isCheckingIn = false;
+        });
+      }
+    }
+  }
+
+  String _checkinMessage(CheckinResult result) {
+    if (result.message != null && result.message!.isNotEmpty) {
+      return result.message!;
+    }
+    if (result.isCompleted) {
+      return 'Check-in completado. +Hurra aplicado.';
+    }
+    if (result.isDuplicate) {
+      return 'Ya registraste tu check-in hoy.';
+    }
+    if (result.isProgress) {
+      return 'Check-in registrado (${result.days}/${result.required}).';
+    }
+    return 'Check-in registrado.';
+  }
+
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
       ),
-      body: const Center(
-        child: Text(
-          'Pantalla principal (en blanco por ahora).',
-          textAlign: TextAlign.center,
+    );
+  }
+
+  List<EventSummary> _filterTodayEvents(List<EventSummary> events) {
+    final now = DateTime.now();
+    return events
+        .where((event) => event.startAt != null)
+        .where((event) => _isSameDay(event.startAt!, now))
+        .toList();
+  }
+
+  List<EventSummary> _filterUpcomingEvents(List<EventSummary> events) {
+    final now = DateTime.now();
+    final upcoming = events
+        .where((event) => event.startAt != null)
+        .where((event) => event.startAt!.isAfter(now))
+        .toList();
+    upcoming.sort((a, b) => a.startAt!.compareTo(b.startAt!));
+    return upcoming.take(2).toList();
+  }
+
+  bool _isSameDay(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
+  String _formatDateLabel(DateTime? date) {
+    if (date == null) {
+      return '--';
+    }
+    const months = [
+      'Ene',
+      'Feb',
+      'Mar',
+      'Abr',
+      'May',
+      'Jun',
+      'Jul',
+      'Ago',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dic',
+    ];
+    final monthLabel = months[date.month - 1];
+    return '${date.day} $monthLabel';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final profile = _profile;
+    final hurraBalance = _hurraBalance;
+    final antorchaBalance = _antorchaBalance;
+
+    return Scaffold(
+      extendBody: true,
+      backgroundColor: Colors.transparent,
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      floatingActionButton: _buildQrButton(profile?.matricula),
+      bottomNavigationBar: _buildBottomNav(),
+      body: Stack(
+        children: [
+          _buildBackground(),
+          SafeArea(
+            child: RefreshIndicator(
+              onRefresh: _loadDashboard,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 120),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildTopBar(),
+                    const SizedBox(height: 8),
+                    _buildProfileHeader(profile),
+                    const SizedBox(height: 18),
+                    _buildCoins(hurraBalance, antorchaBalance),
+                    const SizedBox(height: 20),
+                    _buildSectionTitle('Retos semanales'),
+                    const SizedBox(height: 12),
+                    _buildWeeklyChallengesSection(),
+                    const SizedBox(height: 28),
+                    _buildSectionTitle('Hoy'),
+                    const SizedBox(height: 12),
+                    _buildTodaySection(_todayEvents),
+                    const SizedBox(height: 22),
+                    _buildSectionTitle('Proximos eventos'),
+                    const SizedBox(height: 12),
+                    _buildUpcomingSection(_upcomingEvents),
+                    if (_isLoading) ...[
+                      const SizedBox(height: 18),
+                      const Center(child: CircularProgressIndicator()),
+                    ],
+                    if (_errorMessage != null) ...[
+                      const SizedBox(height: 18),
+                      Center(
+                        child: Text(
+                          _errorMessage!,
+                          style: const TextStyle(
+                            color: Color(0xFFB64C3C),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBackground() {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFFF6EFE4),
+            Color(0xFFE6EEF9),
+          ],
         ),
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            top: -90,
+            left: -40,
+            child: _SoftCircle(
+              size: 220,
+              color: Color(0x66FFD8A6),
+            ),
+          ),
+          Positioned(
+            top: 180,
+            right: -80,
+            child: _SoftCircle(
+              size: 260,
+              color: Color(0x664A7BD9),
+            ),
+          ),
+          Positioned(
+            bottom: 80,
+            left: -60,
+            child: _SoftCircle(
+              size: 180,
+              color: Color(0x662E9D8F),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTopBar() {
+    return Row(
+      children: [
+        const Spacer(),
+        Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFFE8EEF8),
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x19000000),
+                blurRadius: 12,
+                offset: Offset(0, 6),
+              ),
+            ],
+          ),
+          child: IconButton(
+            onPressed: () {},
+            icon: const Icon(Icons.settings),
+            color: const Color(0xFF0F1B2D),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildProfileHeader(UserProfile? profile) {
+    final name = profile?.name.isNotEmpty == true ? profile!.name : 'Alumno';
+    final career =
+        profile?.career.isNotEmpty == true ? profile!.career : 'Carrera';
+    final matricula =
+        profile?.matricula.isNotEmpty == true ? profile!.matricula : '0000000';
+
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          _ProfileAvatar(photoUrl: profile?.photoUrl),
+          const SizedBox(height: 12),
+          Text(
+            name,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF0F1B2D),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            career,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 14,
+              color: Color(0xFF5B6B86),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            matricula,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 13,
+              letterSpacing: 0.4,
+              color: Color(0xFF8190AA),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCoins(int hurra, int antorchas) {
+    return Center(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: const Color(0xFFE3E7F0)),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x12000000),
+              blurRadius: 10,
+              offset: Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _CoinChip(
+              icon: SvgPicture.asset(
+                'assets/images/coinHurra.svg',
+                width: 18,
+                height: 18,
+              ),
+              color: const Color(0xFF1D76F2),
+              value: hurra,
+            ),
+            const SizedBox(width: 16),
+            _CoinChip(
+              icon: const Icon(
+                Icons.local_fire_department,
+                color: Color(0xFF1C4DA6),
+                size: 18,
+              ),
+              color: const Color(0xFF1C4DA6),
+              value: antorchas,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Text(
+      title,
+      style: const TextStyle(
+        fontSize: 18,
+        fontWeight: FontWeight.w700,
+        color: Color(0xFF1B2235),
+      ),
+    );
+  }
+
+  Widget _buildWeeklyChallengesSection() {
+    if (_weeklyChallenges.isEmpty) {
+      return _InfoCard(
+        child: Text(
+          'Aun no tienes retos asignados.',
+          style: const TextStyle(
+            color: Color(0xFF5B6B86),
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      );
+    }
+
+    final completedWeekly = _weeklyChallenges
+        .where((challenge) => challenge.countsForWeekly && challenge.isCompleted)
+        .length;
+    final requirement = _weeklyRequirement > 0 ? _weeklyRequirement : 1;
+
+    return _InfoCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Completa $completedWeekly de $requirement retos para ganar Antorcha.',
+            style: const TextStyle(
+              color: Color(0xFF2C3A52),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 12),
+          ..._weeklyChallenges.map((challenge) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _WeeklyChallengeTile(
+                challenge: challenge,
+                onCheckin: challenge.isCheckin && !challenge.isCompleted
+                    ? () => _handleCheckin(challenge)
+                    : null,
+                isCheckingIn: _isCheckingIn,
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTodaySection(List<EventSummary> events) {
+    if (events.isEmpty) {
+      return SizedBox(
+        height: 180,
+        child: ListView(
+          scrollDirection: Axis.horizontal,
+          children: const [
+            _EventCard(
+              title: 'Sin eventos',
+              dateLabel: 'Hoy',
+              points: 0,
+              highlight: false,
+            ),
+          ],
+        ),
+      );
+    }
+
+    return SizedBox(
+      height: 180,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: events.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 14),
+        itemBuilder: (context, index) {
+          final event = events[index];
+          return _EventCard(
+            title: event.title,
+            dateLabel: _formatDateLabel(event.startAt),
+            points: 0,
+            highlight: index == 0,
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildUpcomingSection(List<EventSummary> events) {
+    if (events.isEmpty) {
+      return Row(
+        children: const [
+          Expanded(
+            child: _EventTile(
+              dateLabel: '--',
+              title: 'Sin eventos',
+              points: 0,
+            ),
+          ),
+        ],
+      );
+    }
+
+    final tiles = events.take(2).toList();
+    return Row(
+      children: [
+        Expanded(
+          child: _EventTile(
+            dateLabel: _formatDateLabel(tiles.first.startAt),
+            title: tiles.first.title,
+            points: 0,
+          ),
+        ),
+        if (tiles.length > 1) ...[
+          const SizedBox(width: 12),
+          Expanded(
+            child: _EventTile(
+              dateLabel: _formatDateLabel(tiles.last.startAt),
+              title: tiles.last.title,
+              points: 0,
+              accentColor: const Color(0xFF7DD56F),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildQrButton(String? matricula) {
+    return FloatingActionButton(
+      onPressed: () => _showQr(matricula),
+      backgroundColor: const Color(0xFF0A2A6B),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      child: const Icon(Icons.qr_code_2, size: 28, color: Colors.white),
+    );
+  }
+
+  Widget _buildBottomNav() {
+    const activeColor = Color(0xFFEAF0FF);
+    const inactiveColor = Color(0xFFB9C7E6);
+
+    return BottomAppBar(
+      color: const Color(0xFF0A2A6B),
+      shape: const CircularNotchedRectangle(),
+      notchMargin: 8,
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 76,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _NavItem(
+                icon: Icons.event_available,
+                label: 'Eventos',
+                isActive: _selectedIndex == 0,
+                activeColor: activeColor,
+                inactiveColor: inactiveColor,
+                onTap: () => _setIndex(0),
+              ),
+              _NavItem(
+                icon: Icons.notifications,
+                label: 'Notificaciones',
+                isActive: _selectedIndex == 1,
+                activeColor: activeColor,
+                inactiveColor: inactiveColor,
+                onTap: () => _setIndex(1),
+              ),
+              const SizedBox(width: 32),
+              _NavItem(
+                icon: Icons.storefront,
+                label: 'Tienda',
+                isActive: _selectedIndex == 2,
+                activeColor: activeColor,
+                inactiveColor: inactiveColor,
+                onTap: () => _setIndex(2),
+              ),
+              _NavItem(
+                icon: Icons.emoji_events,
+                label: 'Pase',
+                isActive: _selectedIndex == 3,
+                activeColor: activeColor,
+                inactiveColor: inactiveColor,
+                onTap: () => _setIndex(3),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _setIndex(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
+
+  void _showQr(String? matricula) {
+    final qrValue =
+        (matricula == null || matricula.isEmpty) ? 'SIN_MATRICULA' : matricula;
+
+    showDialog<void>(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          backgroundColor: const Color(0xFF0D1E3A),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'QR del alumno',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: QrImageView(
+                    data: qrValue,
+                    size: 220,
+                    backgroundColor: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  qrValue,
+                  style: const TextStyle(
+                    color: Color(0xFFD3DDF2),
+                    letterSpacing: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text(
+                    'Cerrar',
+                    style: TextStyle(color: Color(0xFFD3DDF2)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _ProfileAvatar extends StatelessWidget {
+  final String? photoUrl;
+
+  const _ProfileAvatar({this.photoUrl});
+
+  @override
+  Widget build(BuildContext context) {
+    final imageProvider = (photoUrl != null && photoUrl!.isNotEmpty)
+        ? NetworkImage(photoUrl!)
+        : const AssetImage('assets/images/profile_placeholder.png')
+            as ImageProvider;
+
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: const Color(0xFF0D2D7A), width: 2),
+      ),
+      child: CircleAvatar(
+        radius: 46,
+        backgroundImage: imageProvider,
+        backgroundColor: const Color(0xFFE5ECF8),
+      ),
+    );
+  }
+}
+
+class _CoinChip extends StatelessWidget {
+  final Widget icon;
+  final Color color;
+  final int value;
+
+  const _CoinChip({
+    required this.icon,
+    required this.color,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.12),
+            shape: BoxShape.circle,
+          ),
+          child: icon,
+        ),
+        const SizedBox(width: 6),
+        Text(
+          value.toString(),
+          style: const TextStyle(
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF0F1B2D),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _EventCard extends StatelessWidget {
+  final String title;
+  final String dateLabel;
+  final int points;
+  final bool highlight;
+
+  const _EventCard({
+    required this.title,
+    required this.dateLabel,
+    required this.points,
+    required this.highlight,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = highlight ? const Color(0xFF0A2A6B) : const Color(0xFF122F66);
+    final textColor = highlight ? Colors.white : const Color(0xFFD7E2F7);
+
+    return Container(
+      width: 240,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            const Color(0xFF1B2B4E),
+            color,
+          ],
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x1A000000),
+            blurRadius: 12,
+            offset: Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            top: 14,
+            left: 14,
+            child: _DateBadge(label: dateLabel),
+          ),
+          Positioned(
+            bottom: 18,
+            left: 16,
+            right: 16,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: textColor,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Row(
+                  children: [
+                    const Icon(Icons.local_fire_department,
+                        color: Colors.white, size: 18),
+                    const SizedBox(width: 4),
+                    Text(
+                      points.toString(),
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WeeklyChallengeTile extends StatelessWidget {
+  final WeeklyChallenge challenge;
+  final VoidCallback? onCheckin;
+  final bool isCheckingIn;
+
+  const _WeeklyChallengeTile({
+    required this.challenge,
+    this.onCheckin,
+    required this.isCheckingIn,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isCompleted = challenge.isCompleted;
+    final requiredDays =
+        challenge.checkinRequiredDays > 0 ? challenge.checkinRequiredDays : 3;
+    final progressLabel = challenge.isCheckin
+        ? '${challenge.progressDays}/$requiredDays dias'
+        : null;
+
+    final statusColor =
+        isCompleted ? const Color(0xFF1F9D69) : const Color(0xFF9AA7BD);
+    final statusLabel = isCompleted ? 'Completado' : 'Pendiente';
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7F9FD),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE3E7F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE8EEF8),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  challenge.isCheckin
+                      ? Icons.check_circle_outline
+                      : Icons.flag_outlined,
+                  size: 18,
+                  color: const Color(0xFF0A2A6B),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      challenge.title,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1B2235),
+                      ),
+                    ),
+                    if (challenge.description.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        challenge.description,
+                        style: const TextStyle(
+                          color: Color(0xFF5B6B86),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                    if (progressLabel != null) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        'Progreso: $progressLabel',
+                        style: const TextStyle(
+                          color: Color(0xFF5B6B86),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    statusLabel,
+                    style: TextStyle(
+                      color: statusColor,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  _RewardBadge(
+                    givesHurra: challenge.givesHurra,
+                    hurraReward: challenge.hurraReward,
+                    givesHurraExtra: challenge.givesHurraExtra,
+                    hurraExtraValue: challenge.hurraExtraValue,
+                  ),
+                ],
+              ),
+            ],
+          ),
+          if (onCheckin != null) ...[
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: isCheckingIn ? null : onCheckin,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF0A2A6B),
+                  side: const BorderSide(color: Color(0xFFB8C6E5)),
+                ),
+                child: Text(isCheckingIn ? 'Registrando...' : 'Check-in hoy'),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _RewardBadge extends StatelessWidget {
+  final bool givesHurra;
+  final int hurraReward;
+  final bool givesHurraExtra;
+  final int hurraExtraValue;
+
+  const _RewardBadge({
+    required this.givesHurra,
+    required this.hurraReward,
+    required this.givesHurraExtra,
+    required this.hurraExtraValue,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (!givesHurra && !givesHurraExtra) {
+      return const SizedBox.shrink();
+    }
+
+    final total = (givesHurra ? hurraReward : 0) +
+        (givesHurraExtra ? hurraExtraValue : 0);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEAF0FF),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        '+$total Hurra',
+        style: const TextStyle(
+          color: Color(0xFF1D76F2),
+          fontWeight: FontWeight.w600,
+          fontSize: 11,
+        ),
+      ),
+    );
+  }
+}
+
+class _InfoCard extends StatelessWidget {
+  final Widget child;
+
+  const _InfoCard({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE3E7F0)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x12000000),
+            blurRadius: 10,
+            offset: Offset(0, 6),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+}
+
+class _EventTile extends StatelessWidget {
+  final String dateLabel;
+  final String title;
+  final int points;
+  final Color? accentColor;
+
+  const _EventTile({
+    required this.dateLabel,
+    required this.title,
+    required this.points,
+    this.accentColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final baseColor = accentColor ?? const Color(0xFF0A2A6B);
+
+    return Container(
+      height: 190,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            baseColor.withOpacity(0.85),
+            baseColor,
+          ],
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x14000000),
+            blurRadius: 10,
+            offset: Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _DateBadge(label: dateLabel),
+          const Spacer(),
+          Text(
+            title,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+              fontSize: 15,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              const Icon(Icons.local_fire_department,
+                  color: Colors.white, size: 16),
+              const SizedBox(width: 4),
+              Text(
+                points.toString(),
+                style: const TextStyle(color: Colors.white),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DateBadge extends StatelessWidget {
+  final String label;
+
+  const _DateBadge({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0B2051),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w600,
+          fontSize: 12,
+        ),
+      ),
+    );
+  }
+}
+
+class _NavItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool isActive;
+  final Color activeColor;
+  final Color inactiveColor;
+  final VoidCallback onTap;
+
+  const _NavItem({
+    required this.icon,
+    required this.label,
+    required this.isActive,
+    required this.activeColor,
+    required this.inactiveColor,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isActive ? activeColor : inactiveColor;
+
+    return InkWell(
+      onTap: onTap,
+      child: SizedBox(
+        width: 76,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: color, size: 22),
+            const SizedBox(height: 4),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                softWrap: false,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SoftCircle extends StatelessWidget {
+  final double size;
+  final Color color;
+
+  const _SoftCircle({required this.size, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
       ),
     );
   }
