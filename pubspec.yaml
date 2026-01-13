@@ -35,6 +35,7 @@ dependencies:
   flutter_secure_storage: ^9.2.2
   google_fonts: ^6.2.1
   http: ^1.2.2
+  mobile_scanner: ^5.1.1
   openid_client: ^0.4.9
   qr_flutter: ^4.1.0
   shared_preferences: ^2.2.3
@@ -72,6 +73,13 @@ flutter:
     - assets/images/logotipo.png
     - assets/images/profile_placeholder.png
     - assets/images/coinHurra.svg
+    - assets/card/backgrounds/
+    - assets/card/banners/
+    - assets/card/frames/
+    - assets/card/nameplates/
+    - assets/card/photo_frames/
+    - assets/card/title_badges/
+    - assets/card/medals/
     - .env
 
   # An image asset can refer to one or more resolution-specific "variants", see

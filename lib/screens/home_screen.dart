@@ -13,6 +13,8 @@ import '../services/auth_service.dart';
 import '../services/challenge_service.dart';
 import '../services/events_service.dart';
 import '../services/profile_service.dart';
+import 'qr_scanner_screen.dart';
+import 'user_card_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -289,49 +291,112 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           _buildBackground(),
           SafeArea(
-            child: RefreshIndicator(
-              onRefresh: _loadDashboard,
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 120),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildTopBar(),
-                    const SizedBox(height: 8),
-                    _buildProfileHeader(profile),
-                    const SizedBox(height: 18),
-                    _buildCoins(hurraBalance, antorchaBalance),
-                    const SizedBox(height: 20),
-                    _buildSectionTitle('Retos semanales'),
-                    const SizedBox(height: 12),
-                    _buildWeeklyChallengesSection(),
-                    const SizedBox(height: 28),
-                    _buildSectionTitle('Hoy'),
-                    const SizedBox(height: 12),
-                    _buildTodaySection(_todayEvents),
-                    const SizedBox(height: 22),
-                    _buildSectionTitle('Proximos eventos'),
-                    const SizedBox(height: 12),
-                    _buildUpcomingSection(_upcomingEvents),
-                    if (_isLoading) ...[
-                      const SizedBox(height: 18),
-                      const Center(child: CircularProgressIndicator()),
-                    ],
-                    if (_errorMessage != null) ...[
-                      const SizedBox(height: 18),
-                      Center(
-                        child: Text(
-                          _errorMessage!,
-                          style: const TextStyle(
-                            color: Color(0xFFB64C3C),
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
+            child: _buildTabContent(profile, hurraBalance, antorchaBalance),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTabContent(
+    UserProfile? profile,
+    int hurraBalance,
+    int antorchaBalance,
+  ) {
+    switch (_selectedIndex) {
+      case 0:
+        return _buildDashboardContent(profile, hurraBalance, antorchaBalance);
+      case 1:
+        return UserCardScreen(
+          profile: profile,
+          hurraBalance: hurraBalance,
+          antorchaBalance: antorchaBalance,
+        );
+      case 2:
+        return _buildPlaceholderTab('Tienda');
+      case 3:
+        return _buildPlaceholderTab('Pase');
+      default:
+        return _buildDashboardContent(profile, hurraBalance, antorchaBalance);
+    }
+  }
+
+  Widget _buildDashboardContent(
+    UserProfile? profile,
+    int hurraBalance,
+    int antorchaBalance,
+  ) {
+    return RefreshIndicator(
+      onRefresh: _loadDashboard,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 120),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildTopBar(),
+            const SizedBox(height: 8),
+            _buildProfileHeader(profile),
+            const SizedBox(height: 18),
+            _buildCoins(hurraBalance, antorchaBalance),
+            const SizedBox(height: 20),
+            _buildSectionTitle('Retos semanales'),
+            const SizedBox(height: 12),
+            _buildWeeklyChallengesSection(),
+            const SizedBox(height: 28),
+            _buildSectionTitle('Hoy'),
+            const SizedBox(height: 12),
+            _buildTodaySection(_todayEvents),
+            const SizedBox(height: 22),
+            _buildSectionTitle('Proximos eventos'),
+            const SizedBox(height: 12),
+            _buildUpcomingSection(_upcomingEvents),
+            if (_isLoading) ...[
+              const SizedBox(height: 18),
+              const Center(child: CircularProgressIndicator()),
+            ],
+            if (_errorMessage != null) ...[
+              const SizedBox(height: 18),
+              Center(
+                child: Text(
+                  _errorMessage!,
+                  style: const TextStyle(
+                    color: Color(0xFFB64C3C),
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPlaceholderTab(String label) {
+    return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 120),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildTopBar(),
+          const SizedBox(height: 10),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF0F1B2D),
+            ),
+          ),
+          const SizedBox(height: 16),
+          const _InfoCard(
+            child: Text(
+              'Proximamente.',
+              style: TextStyle(
+                color: Color(0xFF5B6B86),
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
@@ -668,8 +733,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 onTap: () => _setIndex(0),
               ),
               _NavItem(
-                icon: Icons.notifications,
-                label: 'Notificaciones',
+                icon: Icons.badge,
+                label: 'Mi tarjeta',
                 isActive: _selectedIndex == 1,
                 activeColor: activeColor,
                 inactiveColor: inactiveColor,
@@ -750,6 +815,15 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 const SizedBox(height: 18),
+                FilledButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    _openQrScanner();
+                  },
+                  icon: const Icon(Icons.qr_code_scanner),
+                  label: const Text('Escanear'),
+                ),
+                const SizedBox(height: 8),
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
                   child: const Text(
@@ -763,6 +837,18 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       },
     );
+  }
+
+  Future<void> _openQrScanner() async {
+    final result = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (_) => const QrScannerScreen()),
+    );
+
+    if (!mounted || result == null || result.isEmpty) {
+      return;
+    }
+
+    _showSnackBar('QR detectado: $result');
   }
 }
 
