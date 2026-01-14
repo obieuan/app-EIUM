@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../models/card_asset.dart';
 import '../models/card_selection.dart';
@@ -8,6 +9,7 @@ import '../models/user_profile.dart';
 import '../services/api_exceptions.dart';
 import '../services/auth_service.dart';
 import '../services/card_service.dart';
+import '../services/profile_service.dart';
 
 class UserCardScreen extends StatefulWidget {
   final UserProfile? profile;
@@ -67,11 +69,16 @@ class _UserCardScreenState extends State<UserCardScreen> {
 
   final AuthService _authService = AuthService();
   final CardService _cardService = CardService();
+  final ProfileService _profileService = ProfileService();
+  final ImagePicker _imagePicker = ImagePicker();
   Map<String, List<CardAsset>> _assetsBySection = {};
   CardSelection? _selection;
   bool _isLoading = true;
   bool _isSaving = false;
+  bool _isUploadingPhoto = false;
+  bool _showEditor = false;
   String? _errorMessage;
+  String? _photoOverrideUrl;
   int _activeMedalSlot = 1;
 
   @override
@@ -318,6 +325,59 @@ class _UserCardScreenState extends State<UserCardScreen> {
     );
   }
 
+  Future<void> _updateProfilePhoto() async {
+    if (_isUploadingPhoto) {
+      return;
+    }
+
+    final image = await _imagePicker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1400,
+      imageQuality: 90,
+    );
+    if (image == null) {
+      return;
+    }
+
+    final session = await _authService.getValidSession();
+    final token = session?.idToken;
+    if (token == null || token.isEmpty) {
+      _showSnackBar('No hay sesion activa.');
+      return;
+    }
+
+    setState(() {
+      _isUploadingPhoto = true;
+    });
+
+    try {
+      final url = await _profileService.updatePhoto(token, image);
+      if (!mounted) {
+        return;
+      }
+      if (url != null && url.isNotEmpty) {
+        setState(() {
+          _photoOverrideUrl = url;
+        });
+      }
+      _showSnackBar('Foto actualizada.');
+    } on TokenExpiredException {
+      if (mounted) {
+        _showSnackBar('Tu sesion expiro. Inicia sesion de nuevo.');
+      }
+    } catch (_) {
+      if (mounted) {
+        _showSnackBar('No se pudo actualizar la foto.');
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isUploadingPhoto = false;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final profile = widget.profile;
@@ -346,36 +406,68 @@ class _UserCardScreenState extends State<UserCardScreen> {
                     ),
               ),
               const SizedBox(height: 12),
-              _buildCard(
-                displayName: displayName,
-                displayCareer: displayCareer,
-                displayMatricula: displayMatricula,
-                photoUrl: profile?.photoUrl,
-              ),
-              const SizedBox(height: 24),
-              Text(
-                'Editor de tarjeta',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF0A2A6B),
-                    ),
-              ),
-              const SizedBox(height: 12),
-              if (_errorMessage != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Text(
-                    _errorMessage!,
-                    style: const TextStyle(
-                      color: Color(0xFFB64C3C),
-                      fontWeight: FontWeight.w600,
-                    ),
+              if (_selection == null && _isLoading)
+                _buildCardLoading()
+              else
+                _buildCard(
+                  displayName: displayName,
+                  displayCareer: displayCareer,
+                  displayMatricula: displayMatricula,
+                  photoUrl: _photoOverrideUrl ?? profile?.photoUrl,
+                ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _isUploadingPhoto ? null : _updateProfilePhoto,
+                  icon: _isUploadingPhoto
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.camera_alt_outlined),
+                  label: Text(
+                    _isUploadingPhoto ? 'Subiendo foto...' : 'Cambiar foto',
                   ),
                 ),
-              if (_isLoading)
-                const Center(child: CircularProgressIndicator())
-              else
-                _buildEditorPanel(),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: () => setState(() => _showEditor = !_showEditor),
+                  child: Text(
+                    _showEditor ? 'Ocultar editor' : 'Editar tarjeta',
+                  ),
+                ),
+              ),
+              if (_showEditor) ...[
+                const SizedBox(height: 20),
+                Text(
+                  'Editor de tarjeta',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF0A2A6B),
+                      ),
+                ),
+                const SizedBox(height: 12),
+                if (_errorMessage != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Text(
+                      _errorMessage!,
+                      style: const TextStyle(
+                        color: Color(0xFFB64C3C),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                if (_isLoading)
+                  const Center(child: CircularProgressIndicator())
+                else
+                  _buildEditorPanel(),
+              ],
             ],
           ),
         ),
@@ -532,6 +624,31 @@ class _UserCardScreenState extends State<UserCardScreen> {
               ),
             );
           },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCardLoading() {
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 340),
+        child: AspectRatio(
+          aspectRatio: _backgroundAspectRatio,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(28),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x1A000000),
+                  blurRadius: 18,
+                  offset: Offset(0, 10),
+                ),
+              ],
+            ),
+            child: const Center(child: CircularProgressIndicator()),
+          ),
         ),
       ),
     );
@@ -700,7 +817,11 @@ class _UserCardScreenState extends State<UserCardScreen> {
     int? selectedId,
     String? emptyLabel,
   }) {
-    final assets = _assetsBySection[section] ?? [];
+    final allAssets = _assetsBySection[section] ?? [];
+    // Only show assets the user owns or that are globally available
+    final assets = allAssets
+        .where((a) => a.owned || a.availability.toLowerCase() == 'global')
+        .toList();
     final resolvedSelectedId = selectedId ?? _selection?.sections[section]?.id;
     final label = emptyLabel ?? 'Sin assets disponibles.';
 
@@ -846,18 +967,18 @@ class _AssetTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final rarityColor = _rarityColor(asset.rarity);
     final locked = !asset.owned;
-    final urlLabel = _assetUrlLabel(asset.imageUrl);
+    final isThumbnail = asset.section == 'background' || asset.section == 'banner';
+
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
       child: Container(
-        padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isSelected ? _selectedBorder : rarityColor,
-            width: isSelected ? 2.2 : 1.1,
+            width: isSelected ? 2.5 : 1.2,
           ),
           boxShadow: const [
             BoxShadow(
@@ -867,90 +988,137 @@ class _AssetTile extends StatelessWidget {
             ),
           ],
         ),
-        child: Stack(
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Center(
-                    child: _assetPreview(asset),
-                  ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(14),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // Asset image
+              _assetPreview(asset, isThumbnail: isThumbnail),
+              // Lock overlay
+              if (locked)
+                Container(
+                  color: Colors.white.withOpacity(0.7),
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  'ID ${asset.id}',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF0F1B2D),
-                  ),
-                ),
-                Text(
-                  urlLabel,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 9,
+              if (locked)
+                const Center(
+                  child: Icon(
+                    Icons.lock_outline,
                     color: Color(0xFF7B8BA3),
+                    size: 28,
                   ),
                 ),
-              ],
-            ),
-            if (locked)
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.75),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-            if (locked)
-              const Center(
-                child: Icon(Icons.lock_outline, color: Color(0xFF7B8BA3)),
-              ),
-            if (locked && asset.availability == 'purchasable')
-              Positioned(
-                bottom: 4,
-                right: 4,
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1D76F2),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    '${asset.priceHurra}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
+              // Price badge for purchasable items
+              if (locked && asset.availability == 'purchasable')
+                Positioned(
+                  bottom: 6,
+                  right: 6,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1D76F2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.star,
+                          color: Color(0xFFFFD54F),
+                          size: 12,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${asset.priceHurra}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
-              ),
-          ],
+              // Selected indicator
+              if (isSelected)
+                Positioned(
+                  top: 6,
+                  right: 6,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF5D7CFF),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.check,
+                      color: Colors.white,
+                      size: 14,
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  String _assetUrlLabel(String? url) {
-    if (url == null || url.isEmpty) {
-      return 'Sin URL';
-    }
-    return url;
-  }
-
-  Widget _assetPreview(CardAsset asset) {
+  Widget _assetPreview(CardAsset asset, {required bool isThumbnail}) {
     final url = asset.imageUrl;
     if (url == null || url.isEmpty) {
-      return const SizedBox.shrink();
+      return Container(
+        color: const Color(0xFFF0F4F8),
+        child: const Center(
+          child: Icon(
+            Icons.image_not_supported_outlined,
+            color: Color(0xFFB0BEC5),
+            size: 32,
+          ),
+        ),
+      );
     }
+
+    final fit = isThumbnail ? BoxFit.cover : BoxFit.contain;
+
     if (url.toLowerCase().endsWith('.svg')) {
-      return SvgPicture.network(url, fit: BoxFit.contain);
+      return Container(
+        color: isThumbnail ? null : Colors.transparent,
+        padding: isThumbnail ? null : const EdgeInsets.all(8),
+        child: SvgPicture.network(
+          url,
+          fit: fit,
+          placeholderBuilder: (_) => const Center(
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      );
     }
-    return Image.network(url, fit: BoxFit.contain);
+
+    return Container(
+      padding: isThumbnail ? null : const EdgeInsets.all(8),
+      child: Image.network(
+        url,
+        fit: fit,
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return const Center(
+            child: CircularProgressIndicator(strokeWidth: 2),
+          );
+        },
+        errorBuilder: (_, __, ___) => const Center(
+          child: Icon(
+            Icons.broken_image_outlined,
+            color: Color(0xFFB0BEC5),
+            size: 32,
+          ),
+        ),
+      ),
+    );
   }
 
   Color _rarityColor(String rarity) {

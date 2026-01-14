@@ -20,38 +20,11 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
   }
 
   Future<void> _handleCode(String value) async {
-    final result = await showDialog<String>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Codigo detectado'),
-          content: Text(value),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Escanear otro'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(value),
-              child: const Text('Usar'),
-            ),
-          ],
-        );
-      },
-    );
-
     if (!mounted) {
       return;
     }
-
-    if (result != null && result.isNotEmpty) {
-      Navigator.of(context).pop(result);
-      return;
-    }
-
-    setState(() {
-      _isProcessing = false;
-    });
+    // Jump directly to action without confirmation dialog
+    Navigator.of(context).pop(value);
   }
 
   void _onDetect(BarcodeCapture capture) {

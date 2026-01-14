@@ -1,0 +1,151 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:http/http.dart' as http;
+
+import '../models/album_entry.dart';
+import '../models/public_card_data.dart';
+import 'api_exceptions.dart';
+
+class AlbumService {
+  AlbumService({http.Client? client}) : _client = client ?? http.Client();
+
+  final http.Client _client;
+
+  /// Fetch a preview of another user's card by matricula.
+  Future<PublicCardData?> fetchPreview(String token, String matricula) async {
+    final baseUrl = _normalizeBaseUrl(
+      dotenv.env['EVENTS_API_BASE_URL'] ?? dotenv.env['API_BASE_URL'] ?? '',
+    );
+    if (baseUrl.isEmpty) {
+      return null;
+    }
+
+    final uri = Uri.parse('$baseUrl/api/mobile/album/preview/$matricula');
+    if (kDebugMode) {
+      debugPrint('AlbumService: GET $uri');
+    }
+
+    final response = await _client.get(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Accept': 'application/json',
+      },
+    );
+
+    if (response.statusCode == 401) {
+      throw const TokenExpiredException();
+    }
+    if (response.statusCode == 404) {
+      return null;
+    }
+    if (response.statusCode != 200) {
+      return null;
+    }
+
+    final payload = json.decode(response.body);
+    if (payload is Map<String, dynamic>) {
+      return PublicCardData.fromJson(payload);
+    }
+    return null;
+  }
+
+  /// Fetch all album entries for the current user.
+  Future<List<AlbumEntry>> fetchAlbum(String token) async {
+    final baseUrl = _normalizeBaseUrl(
+      dotenv.env['EVENTS_API_BASE_URL'] ?? dotenv.env['API_BASE_URL'] ?? '',
+    );
+    if (baseUrl.isEmpty) {
+      return [];
+    }
+
+    final uri = Uri.parse('$baseUrl/api/mobile/album');
+    final response = await _client.get(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Accept': 'application/json',
+      },
+    );
+
+    if (response.statusCode == 401) {
+      throw const TokenExpiredException();
+    }
+    if (response.statusCode != 200) {
+      return [];
+    }
+
+    final payload = json.decode(response.body);
+    if (payload is List) {
+      return payload
+          .whereType<Map<String, dynamic>>()
+          .map(AlbumEntry.fromJson)
+          .toList();
+    }
+    return [];
+  }
+
+  /// Save an album entry with optional snapshot image.
+  Future<AlbumEntry?> saveEntry(
+    String token,
+    String matricula,
+    Uint8List? snapshotBytes,
+  ) async {
+    final baseUrl = _normalizeBaseUrl(
+      dotenv.env['EVENTS_API_BASE_URL'] ?? dotenv.env['API_BASE_URL'] ?? '',
+    );
+    if (baseUrl.isEmpty) {
+      return null;
+    }
+
+    final uri = Uri.parse('$baseUrl/api/mobile/album');
+    final request = http.MultipartRequest('POST', uri)
+      ..headers['Authorization'] = 'Bearer $token'
+      ..headers['Accept'] = 'application/json'
+      ..fields['matricula'] = matricula;
+
+    if (snapshotBytes != null && snapshotBytes.isNotEmpty) {
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          'snapshot',
+          snapshotBytes,
+          filename: 'snapshot_${DateTime.now().millisecondsSinceEpoch}.png',
+        ),
+      );
+    }
+
+    final streamed = await _client.send(request);
+    if (streamed.statusCode == 401) {
+      throw const TokenExpiredException();
+    }
+    if (streamed.statusCode != 200) {
+      return null;
+    }
+
+    final body = await streamed.stream.bytesToString();
+    final payload = _tryDecodeJson(body);
+    if (payload is Map<String, dynamic>) {
+      return AlbumEntry.fromJson(payload);
+    }
+    return null;
+  }
+
+  dynamic _tryDecodeJson(String body) {
+    try {
+      return json.decode(body);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String _normalizeBaseUrl(String baseUrl) {
+    final trimmed = baseUrl.trim();
+    if (trimmed.endsWith('/')) {
+      return trimmed.substring(0, trimmed.length - 1);
+    }
+    return trimmed;
+  }
+}

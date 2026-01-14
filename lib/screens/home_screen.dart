@@ -13,8 +13,13 @@ import '../services/auth_service.dart';
 import '../services/challenge_service.dart';
 import '../services/events_service.dart';
 import '../services/profile_service.dart';
+import 'album_screen.dart';
+import 'card_preview_screen.dart';
+import 'event_checkin_screen.dart';
 import 'qr_scanner_screen.dart';
+import 'store_screen.dart';
 import 'user_card_screen.dart';
+import '../widgets/bubble_menu.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -206,6 +211,68 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  void _handleClaim(WeeklyChallenge challenge) {
+    // Show celebration dialog
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        icon: const Icon(
+          Icons.celebration,
+          color: Color(0xFF22C55E),
+          size: 56,
+        ),
+        title: const Text('¡Felicidades!'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Completaste el reto:',
+              style: TextStyle(color: Colors.grey[600]),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              challenge.title,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            if (challenge.givesHurra && challenge.hurraReward > 0)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFE566),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.star, color: Color(0xFFB8860B), size: 20),
+                    const SizedBox(width: 6),
+                    Text(
+                      '+${challenge.hurraReward} Hurra',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFFB8860B),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('¡Genial!'),
+          ),
+        ],
+      ),
+    );
+  }
+
   String _checkinMessage(CheckinResult result) {
     if (result.message != null && result.message!.isNotEmpty) {
       return result.message!;
@@ -293,6 +360,11 @@ class _HomeScreenState extends State<HomeScreen> {
           SafeArea(
             child: _buildTabContent(profile, hurraBalance, antorchaBalance),
           ),
+          Positioned(
+            top: 50,
+            right: 0,
+            child: SafeArea(child: _buildBubbleMenu(profile)),
+          ),
         ],
       ),
     );
@@ -313,7 +385,10 @@ class _HomeScreenState extends State<HomeScreen> {
           antorchaBalance: antorchaBalance,
         );
       case 2:
-        return _buildPlaceholderTab('Tienda');
+        return StoreScreen(
+          hurraBalance: hurraBalance,
+          onPurchase: _loadDashboard,
+        );
       case 3:
         return _buildPlaceholderTab('Pase');
       default:
@@ -449,29 +524,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildTopBar() {
-    return Row(
-      children: [
-        const Spacer(),
-        Container(
-          decoration: BoxDecoration(
-            color: const Color(0xFFE8EEF8),
-            borderRadius: BorderRadius.circular(14),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x19000000),
-                blurRadius: 12,
-                offset: Offset(0, 6),
-              ),
-            ],
-          ),
-          child: IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.settings),
-            color: const Color(0xFF0F1B2D),
-          ),
-        ),
-      ],
-    );
+    return const SizedBox(height: 48);
   }
 
   Widget _buildProfileHeader(UserProfile? profile) {
@@ -614,6 +667,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 onCheckin: challenge.isCheckin && !challenge.isCompleted
                     ? () => _handleCheckin(challenge)
                     : null,
+                onClaim: challenge.isCompleted
+                    ? () => _handleClaim(challenge)
+                    : null,
                 isCheckingIn: _isCheckingIn,
               ),
             );
@@ -700,6 +756,44 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _buildBubbleMenu(UserProfile? profile) {
+    final isStaff = profile?.isStaff ?? false;
+    return BubbleMenu(
+      icon: const Icon(Icons.menu, size: 26),
+      items: [
+        BubbleMenuItem(
+          icon: Icons.qr_code_scanner,
+          label: 'Escanear',
+          onTap: _openQrScanner,
+        ),
+        BubbleMenuItem(
+          icon: Icons.photo_album,
+          label: 'Album',
+          onTap: _openAlbum,
+        ),
+        BubbleMenuItem(
+          icon: Icons.check_circle_outline,
+          label: 'Check-in',
+          onTap: _openEventCheckin,
+          visible: isStaff,
+          backgroundColor: const Color(0xFF22C55E),
+        ),
+      ],
+    );
+  }
+
+  void _openEventCheckin() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const EventCheckinScreen()),
+    );
+  }
+
+  void _openAlbum() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const AlbumScreen()),
+    );
+  }
+
   Widget _buildQrButton(String? matricula) {
     return FloatingActionButton(
       onPressed: () => _showQr(matricula),
@@ -725,8 +819,8 @@ class _HomeScreenState extends State<HomeScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _NavItem(
-                icon: Icons.event_available,
-                label: 'Eventos',
+                icon: Icons.home_outlined,
+                label: 'Home',
                 isActive: _selectedIndex == 0,
                 activeColor: activeColor,
                 inactiveColor: inactiveColor,
@@ -740,7 +834,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 inactiveColor: inactiveColor,
                 onTap: () => _setIndex(1),
               ),
-              const SizedBox(width: 32),
+              const SizedBox(width: 48),
               _NavItem(
                 icon: Icons.storefront,
                 label: 'Tienda',
@@ -815,15 +909,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 const SizedBox(height: 18),
-                FilledButton.icon(
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                    _openQrScanner();
-                  },
-                  icon: const Icon(Icons.qr_code_scanner),
-                  label: const Text('Escanear'),
-                ),
-                const SizedBox(height: 8),
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
                   child: const Text(
@@ -848,7 +933,20 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
-    _showSnackBar('QR detectado: $result');
+    // Navigate to CardPreviewScreen to show the scanned user's card
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => CardPreviewScreen(matricula: result),
+      ),
+    );
+
+    if (saved == true && mounted) {
+      _showSnackBar('Tarjeta guardada en tu album.');
+      // Switch to Album tab
+      setState(() {
+        _selectedIndex = 2;
+      });
+    }
   }
 }
 
@@ -998,12 +1096,16 @@ class _EventCard extends StatelessWidget {
 class _WeeklyChallengeTile extends StatelessWidget {
   final WeeklyChallenge challenge;
   final VoidCallback? onCheckin;
+  final VoidCallback? onClaim;
   final bool isCheckingIn;
+  final bool isClaiming;
 
   const _WeeklyChallengeTile({
     required this.challenge,
     this.onCheckin,
+    this.onClaim,
     required this.isCheckingIn,
+    this.isClaiming = false,
   });
 
   @override
@@ -1104,6 +1206,7 @@ class _WeeklyChallengeTile extends StatelessWidget {
               ),
             ],
           ),
+          // Check-in button (for checkin challenges not yet completed)
           if (onCheckin != null) ...[
             const SizedBox(height: 10),
             SizedBox(
@@ -1115,6 +1218,30 @@ class _WeeklyChallengeTile extends StatelessWidget {
                   side: const BorderSide(color: Color(0xFFB8C6E5)),
                 ),
                 child: Text(isCheckingIn ? 'Registrando...' : 'Check-in hoy'),
+              ),
+            ),
+          ],
+          // Claim button (for completed challenges)
+          if (onClaim != null && isCompleted) ...[
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: isClaiming ? null : onClaim,
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF22C55E),
+                ),
+                icon: isClaiming
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.card_giftcard, size: 18),
+                label: Text(isClaiming ? 'Reclamando...' : '¡Reclamar recompensa!'),
               ),
             ),
           ],

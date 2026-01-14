@@ -4,6 +4,7 @@ class UserProfile {
   final String matricula;
   final int points;
   final String? photoUrl;
+  final bool isStaff;
 
   const UserProfile({
     required this.name,
@@ -11,6 +12,7 @@ class UserProfile {
     required this.matricula,
     required this.points,
     this.photoUrl,
+    this.isStaff = false,
   });
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
@@ -20,6 +22,7 @@ class UserProfile {
       matricula: (json['matricula'] ?? '').toString(),
       points: _parsePoints(json['points']),
       photoUrl: json['photo_url']?.toString(),
+      isStaff: json['is_staff'] == true || json['is_staff'] == 1,
     );
   }
 

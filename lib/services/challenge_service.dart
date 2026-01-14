@@ -9,6 +9,28 @@ import '../models/challenge_summary.dart';
 import '../models/weekly_challenge.dart';
 import 'api_exceptions.dart';
 
+enum MutualScanStatus { completed, alreadyCompleted, noChallenge }
+
+class MutualScanResult {
+  final MutualScanStatus status;
+  final int hurraEarned;
+
+  const MutualScanResult._(this.status, this.hurraEarned);
+
+  factory MutualScanResult.completed(int hurra) =>
+      MutualScanResult._(MutualScanStatus.completed, hurra);
+
+  factory MutualScanResult.alreadyCompleted() =>
+      const MutualScanResult._(MutualScanStatus.alreadyCompleted, 0);
+
+  factory MutualScanResult.noChallenge() =>
+      const MutualScanResult._(MutualScanStatus.noChallenge, 0);
+
+  bool get isCompleted => status == MutualScanStatus.completed;
+  bool get isAlreadyCompleted => status == MutualScanStatus.alreadyCompleted;
+  bool get hasNoChallenge => status == MutualScanStatus.noChallenge;
+}
+
 class ChallengeService {
   ChallengeService({http.Client? client}) : _client = client ?? http.Client();
 
@@ -157,6 +179,63 @@ class ChallengeService {
         .whereType<Map<String, dynamic>>()
         .map(WeeklyChallenge.fromJson)
         .toList();
+  }
+
+  /// Attempts to complete a MUTUAL_SCAN challenge when scanning another user's QR.
+  /// Returns a result indicating success, already completed, or no matching challenge.
+  Future<MutualScanResult> tryCompleteMutualScan(String token, String peerMatricula) async {
+    final baseUrl = _normalizeBaseUrl(dotenv.env['EVENTS_API_BASE_URL'] ?? '');
+    if (baseUrl.isEmpty) {
+      return MutualScanResult.noChallenge();
+    }
+
+    final uri = Uri.parse('$baseUrl/api/challenges/complete');
+    final payload = {
+      'code': 'MUTUAL_SCAN',
+      'source_type': 'MUTUAL_SCAN',
+      'source_id': peerMatricula,
+      'metadata': {'peer_matricula': peerMatricula},
+    };
+
+    try {
+      final response = await _client.post(
+        uri,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: json.encode(payload),
+      );
+
+      if (response.statusCode == 401) {
+        throw const TokenExpiredException();
+      }
+
+      if (response.statusCode == 422) {
+        // No active challenge or validation failed
+        return MutualScanResult.noChallenge();
+      }
+
+      if (response.statusCode != 200) {
+        return MutualScanResult.noChallenge();
+      }
+
+      final body = json.decode(response.body);
+      if (body is Map<String, dynamic>) {
+        final status = body['status']?.toString() ?? '';
+        if (status == 'completed') {
+          return MutualScanResult.completed(body['hurra_earned'] as int? ?? 0);
+        }
+        if (status == 'already_completed') {
+          return MutualScanResult.alreadyCompleted();
+        }
+      }
+      return MutualScanResult.noChallenge();
+    } catch (e) {
+      if (e is TokenExpiredException) rethrow;
+      return MutualScanResult.noChallenge();
+    }
   }
 
   Future<CheckinResult> checkin(String token, {DateTime? date}) async {

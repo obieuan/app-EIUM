@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 
 import '../models/user_profile.dart';
 import 'api_exceptions.dart';
@@ -49,6 +50,54 @@ class ProfileService {
     final payload = json.decode(response.body);
     if (payload is Map<String, dynamic>) {
       return UserProfile.fromJson(payload);
+    }
+    return null;
+  }
+
+  Future<String?> updatePhoto(String token, XFile file) async {
+    final baseUrl = _normalizeBaseUrl(
+      dotenv.env['EVENTS_API_BASE_URL'] ?? dotenv.env['API_BASE_URL'] ?? '',
+    );
+    if (baseUrl.isEmpty) {
+      return null;
+    }
+
+    final uri = Uri.parse('$baseUrl/api/mobile/profile/photo');
+    final request = http.MultipartRequest('POST', uri)
+      ..headers['Authorization'] = 'Bearer $token'
+      ..headers['Accept'] = 'application/json';
+
+    if (kIsWeb) {
+      final bytes = await file.readAsBytes();
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          'Foto',
+          bytes,
+          filename: file.name,
+        ),
+      );
+    } else {
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          'Foto',
+          file.path,
+          filename: file.name,
+        ),
+      );
+    }
+
+    final streamed = await _client.send(request);
+    if (streamed.statusCode == 401) {
+      throw const TokenExpiredException();
+    }
+    if (streamed.statusCode != 200) {
+      return null;
+    }
+
+    final body = await streamed.stream.bytesToString();
+    final payload = _tryDecodeJson(body);
+    if (payload is Map<String, dynamic>) {
+      return payload['photo_url']?.toString();
     }
     return null;
   }
