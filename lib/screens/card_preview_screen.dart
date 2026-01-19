@@ -26,7 +26,7 @@ class CardPreviewScreen extends StatefulWidget {
 class _CardPreviewScreenState extends State<CardPreviewScreen> {
   static const _placeholders = {
     'background': 'assets/card/backgrounds/default.svg',
-    'banner': 'assets/card/banners/default.svg',
+    'banner': 'assets/card/banners/default.png',
     'title_badge': 'assets/card/title_badges/default.svg',
     'medal': 'assets/card/medals/placeholder.svg',
   };
@@ -146,6 +146,22 @@ class _CardPreviewScreenState extends State<CardPreviewScreen> {
       if (!mounted) return;
 
       if (entry != null) {
+        // Intentar completar el reto MUTUAL_SCAN si el usuario tiene uno activo
+        try {
+          await _challengeService.completeMutualScanChallenge(
+            token,
+            widget.matricula,
+          );
+          if (kDebugMode) {
+            debugPrint('Challenge MUTUAL_SCAN completed successfully');
+          }
+        } catch (challengeError) {
+          // Si falla, no es problema - el usuario podría no tener un reto activo
+          if (kDebugMode) {
+            debugPrint('Challenge completion failed (expected if no active challenge): $challengeError');
+          }
+        }
+
         _showSnackBar('Tarjeta guardada en tu album.');
         Navigator.of(context).pop(true);
       } else {

@@ -106,6 +106,7 @@ class _BubbleMenuState extends State<BubbleMenu>
           padding: const EdgeInsets.only(right: 8, bottom: 8),
           child: FloatingActionButton(
             onPressed: _toggle,
+            heroTag: 'bubble_menu_btn',
             backgroundColor: bgColor,
             foregroundColor: fgColor,
             shape: RoundedRectangleBorder(

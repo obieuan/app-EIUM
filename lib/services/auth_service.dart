@@ -1,4 +1,7 @@
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_appauth/flutter_appauth.dart';
 import 'package:openid_client/openid_client.dart';
 import 'package:openid_client/openid_client_browser.dart' as oidc;
@@ -26,6 +29,23 @@ class AuthService {
   final FlutterAppAuth _appAuth;
   final SessionStorage _sessionStorage;
   static const Duration _tokenLeeway = Duration(seconds: 30);
+
+  Future<bool> checkAppStatus() async {
+    try {
+      final baseUrl = dotenv.env['EVENTS_API_BASE_URL'] ?? 'http://127.0.0.1:8000';
+      final uri = Uri.parse('$baseUrl/api/vnext/status');
+      
+      final response = await http.get(uri);
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return data['maintenance'] == true;
+      }
+    } catch (e) {
+      debugPrint('Error checking app status: $e');
+    }
+    return false; // Default to available if check fails
+  }
 
   Future<AuthSession?> getValidSession() async {
     final session = await _sessionStorage.read();

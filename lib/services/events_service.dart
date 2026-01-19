@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 
+import '../models/activity_summary.dart';
 import '../models/event_summary.dart';
 import 'api_exceptions.dart';
 
@@ -49,6 +50,49 @@ class EventsService {
     return [];
   }
 
+  Future<List<ActivitySummary>> fetchActivities(String token) async {
+    final baseUrl = _normalizeBaseUrl(dotenv.env['EVENTS_API_BASE_URL'] ?? '');
+    if (baseUrl.isEmpty) {
+      return [];
+    }
+
+    final uri = Uri.parse('$baseUrl/api/mobile/activities');
+    if (kDebugMode) {
+      debugPrint('API DEBUG activities -> $uri');
+    }
+    final response = await _client.get(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $token',
+      },
+    );
+    if (kDebugMode) {
+      debugPrint('API DEBUG activities status=${response.statusCode}');
+    }
+
+    if (response.statusCode == 404) {
+      if (kDebugMode) {
+        debugPrint('API DEBUG activities 404 (not deployed yet?) -> returning empty list');
+      }
+      return [];
+    }
+    if (response.statusCode == 401) {
+      throw const TokenExpiredException();
+    }
+    if (response.statusCode != 200) {
+      throw StateError('Activities request failed (${response.statusCode}).');
+    }
+
+    final payload = json.decode(response.body);
+    if (payload is List) {
+      return payload
+          .whereType<Map<String, dynamic>>()
+          .map(ActivitySummary.fromJson)
+          .toList();
+    }
+    return [];
+  }
+
   String _normalizeBaseUrl(String baseUrl) {
     final trimmed = baseUrl.trim();
     if (trimmed.endsWith('/')) {
@@ -57,3 +101,4 @@ class EventsService {
     return trimmed;
   }
 }
+

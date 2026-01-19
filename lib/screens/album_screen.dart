@@ -163,63 +163,146 @@ class _AlbumCard extends StatelessWidget {
     final hasSnapshot =
         entry.snapshotUrl != null && entry.snapshotUrl!.isNotEmpty;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x14000000),
-            blurRadius: 12,
-            offset: Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(
-            child: ClipRRect(
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(18),
+    return GestureDetector(
+      onTap: () => _showCardPopup(context),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x14000000),
+              blurRadius: 12,
+              offset: Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(18),
+                ),
+                child: hasSnapshot
+                    ? Image.network(
+                        entry.snapshotUrl!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => _buildPlaceholder(),
+                      )
+                    : _buildPlaceholder(),
               ),
-              child: hasSnapshot
-                  ? Image.network(
-                      entry.snapshotUrl!,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => _buildPlaceholder(),
-                    )
-                  : _buildPlaceholder(),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  entry.targetName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF0F1B2D),
-                    fontSize: 14,
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    entry.targetName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF0F1B2D),
+                      fontSize: 14,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  entry.targetMatricula,
-                  style: const TextStyle(
-                    color: Color(0xFF8190AA),
-                    fontSize: 12,
+                  const SizedBox(height: 4),
+                  Text(
+                    entry.targetMatricula,
+                    style: const TextStyle(
+                      color: Color(0xFF8190AA),
+                      fontSize: 12,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
+    );
+  }
+
+  void _showCardPopup(BuildContext context) {
+    final hasSnapshot =
+        entry.snapshotUrl != null && entry.snapshotUrl!.isNotEmpty;
+
+    showDialog<void>(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ConstrainedBox(
+                constraints: const BoxConstraints(
+                  maxWidth: 340,
+                  maxHeight: 540,
+                ),
+                child: hasSnapshot
+                    ? Image.network(
+                        entry.snapshotUrl!,
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, __, ___) => Container(
+                          width: 340,
+                          height: 540,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE8EEF8),
+                            borderRadius: BorderRadius.circular(28),
+                          ),
+                          child: const Center(
+                            child: Icon(
+                              Icons.badge_outlined,
+                              size: 64,
+                              color: Color(0xFFB9C7E6),
+                            ),
+                          ),
+                        ),
+                      )
+                    : Container(
+                        width: 340,
+                        height: 540,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE8EEF8),
+                          borderRadius: BorderRadius.circular(28),
+                        ),
+                        child: const Center(
+                          child: Icon(
+                            Icons.badge_outlined,
+                            size: 64,
+                            color: Color(0xFFB9C7E6),
+                          ),
+                        ),
+                      ),
+              ),
+              const SizedBox(height: 20),
+              Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0D1E3A),
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    child: Text(
+                      'Cerrar',
+                      style: TextStyle(
+                        color: Color(0xFFD3DDF2),
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 

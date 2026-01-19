@@ -183,6 +183,42 @@ class ChallengeService {
 
   /// Attempts to complete a MUTUAL_SCAN challenge when scanning another user's QR.
   /// Returns a result indicating success, already completed, or no matching challenge.
+  Future<Map<String, dynamic>> scanLocation(String token, String qrCode) async {
+    final baseUrl = _normalizeBaseUrl(dotenv.env['EVENTS_API_BASE_URL'] ?? '');
+    if (baseUrl.isEmpty) {
+      throw Exception('No events API configuration');
+    }
+
+    try {
+      final response = await _client.post(
+        Uri.parse('$baseUrl/api/vnext/challenges/scan-location'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: json.encode({'qr_code': qrCode}),
+      );
+
+      if (response.statusCode == 401) {
+        throw Exception('Tu sesión ha caducado. Por favor cierra sesión y vuelve a ingresar.');
+      }
+
+      final body = json.decode(response.body);
+
+      if (response.statusCode != 200 && response.statusCode != 201) {
+         throw Exception(body['message'] ?? 'Error al escanear ubicación');
+      }
+
+      return body is Map<String, dynamic> ? body : {};
+    } catch (e) {
+      if (e is TokenExpiredException) rethrow;
+      throw Exception('Error al conectar con el servidor: $e');
+    }
+  }
+
+  /// Attempts to complete a MUTUAL_SCAN challenge when scanning another user's QR.
+  /// Returns a result indicating success, already completed, or no matching challenge.
   Future<MutualScanResult> tryCompleteMutualScan(String token, String peerMatricula) async {
     final baseUrl = _normalizeBaseUrl(dotenv.env['EVENTS_API_BASE_URL'] ?? '');
     if (baseUrl.isEmpty) {
@@ -235,6 +271,58 @@ class ChallengeService {
     } catch (e) {
       if (e is TokenExpiredException) rethrow;
       return MutualScanResult.noChallenge();
+    }
+  }
+
+  /// Completes a MUTUAL_SCAN challenge by scanning another user's card.
+  /// This method doesn't require a specific template code - it will complete
+  /// any active MUTUAL_SCAN challenge the user has.
+  Future<void> completeMutualScanChallenge(
+    String token,
+    String peerMatricula,
+  ) async {
+    final baseUrl = _normalizeBaseUrl(dotenv.env['EVENTS_API_BASE_URL'] ?? '');
+    if (baseUrl.isEmpty) {
+      throw Exception('No events API configuration');
+    }
+
+    final uri = Uri.parse('$baseUrl/api/vnext/challenges/complete');
+    final payload = {
+      'source_type': 'MUTUAL_SCAN',
+      'metadata': {'peer_matricula': peerMatricula},
+    };
+
+    final response = await _client.post(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: json.encode(payload),
+    );
+
+    if (response.statusCode == 401) {
+      throw const TokenExpiredException();
+    }
+
+    // 422 means no active challenge or validation failed - not an error
+    if (response.statusCode == 422) {
+      if (kDebugMode) {
+        final body = json.decode(response.body);
+        final message = body['message'] ?? 'No active MUTUAL_SCAN challenge';
+        debugPrint('Challenge completion skipped: $message');
+      }
+      return;
+    }
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to complete challenge: ${response.statusCode}');
+    }
+
+    if (kDebugMode) {
+      final body = json.decode(response.body);
+      debugPrint('Challenge completed: $body');
     }
   }
 

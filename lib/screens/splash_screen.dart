@@ -2,8 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../services/auth_service.dart';
-import 'home_screen.dart';
-import 'login_screen.dart';
+// import 'home_screen.dart'; // REMOVED
+// import 'login_screen.dart'; // REMOVED
+import 'maintenance_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -22,6 +23,18 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _bootstrap() async {
+    // Check maintenance mode first
+    final isMaintenance = await _authService.checkAppStatus();
+    if (isMaintenance) {
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => MaintenanceScreen(onRetry: _bootstrap),
+        ),
+      );
+      return;
+    }
+
     var session = await _authService.getValidSession();
     if (session == null && kIsWeb) {
       session = await _authService.completeWebSignInIfNeeded();
@@ -29,10 +42,8 @@ class _SplashScreenState extends State<SplashScreen> {
     if (!mounted) {
       return;
     }
-    final nextScreen = session == null ? const LoginScreen() : const HomeScreen();
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => nextScreen),
-    );
+    final nextRoute = session == null ? '/login' : '/home';
+    Navigator.of(context).pushReplacementNamed(nextRoute);
   }
 
   @override

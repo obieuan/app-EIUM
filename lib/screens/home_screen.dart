@@ -2,10 +2,13 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import '../models/activity_summary.dart';
 import '../models/checkin_result.dart';
 import '../models/challenge_summary.dart';
 import '../models/event_summary.dart';
+import '../models/feed_item.dart';
 import '../models/user_profile.dart';
 import '../models/weekly_challenge.dart';
 import '../services/api_exceptions.dart';
@@ -35,8 +38,8 @@ class _HomeScreenState extends State<HomeScreen> {
   final ChallengeService _challengeService = ChallengeService();
 
   UserProfile? _profile;
-  List<EventSummary> _todayEvents = [];
-  List<EventSummary> _upcomingEvents = [];
+  List<FeedItem> _todayItems = [];
+  List<FeedItem> _upcomingItems = [];
   int _hurraBalance = 0;
   int _antorchaBalance = 0;
   int _weeklyRequirement = 1;
@@ -45,11 +48,30 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _errorMessage;
   bool _isLoading = true;
   int _selectedIndex = 0;
+  Set<int> _claimedChallengeIds = {};
 
   @override
   void initState() {
     super.initState();
+    _loadClaimedChallenges();
     _loadDashboard();
+  }
+
+  Future<void> _loadClaimedChallenges() async {
+    final prefs = await SharedPreferences.getInstance();
+    final ids = prefs.getStringList('claimed_challenge_ids') ?? [];
+    setState(() {
+      _claimedChallengeIds = ids.map(int.parse).toSet();
+    });
+  }
+
+  Future<void> _saveClaimedChallenge(int id) async {
+    _claimedChallengeIds.add(id);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(
+      'claimed_challenge_ids',
+      _claimedChallengeIds.map((e) => e.toString()).toList(),
+    );
   }
 
   Future<void> _loadDashboard() async {
@@ -76,17 +98,25 @@ class _HomeScreenState extends State<HomeScreen> {
       final results = await Future.wait([
         _profileService.fetchProfile(token),
         _eventsService.fetchEvents(token),
+        _eventsService.fetchActivities(token),
         _challengeService.fetchSummary(token),
         _challengeService.fetchWeeklyChallenges(token),
       ]);
 
       final profile = results[0] as UserProfile?;
       final events = results[1] as List<EventSummary>;
-      final challenges = results[2] as ChallengeSummary;
-      final weeklyChallenges = results[3] as List<WeeklyChallenge>;
+      final activities = results[2] as List<ActivitySummary>;
+      final challenges = results[3] as ChallengeSummary;
+      final weeklyChallenges = results[4] as List<WeeklyChallenge>;
 
-      final todayEvents = _filterTodayEvents(events);
-      final upcomingEvents = _filterUpcomingEvents(events);
+      // Combine events and activities into feed items
+      final feedItems = [
+        ...events.map((e) => FeedItem.fromEvent(e)),
+        ...activities.map((a) => FeedItem.fromActivity(a)),
+      ];
+
+      final todayItems = _filterTodayItems(feedItems);
+      final upcomingItems = _filterUpcomingItems(feedItems);
 
       final fallbackHurra = profile?.points ?? 0;
       final hurraValue =
@@ -96,8 +126,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
       setState(() {
         _profile = profile;
-        _todayEvents = todayEvents;
-        _upcomingEvents = upcomingEvents;
+        _todayItems = todayItems;
+        _upcomingItems = upcomingItems;
         _hurraBalance = hurraValue;
         _antorchaBalance = antorchaValue;
         _weeklyRequirement = challenges.weeklyRequirement;
@@ -120,17 +150,25 @@ class _HomeScreenState extends State<HomeScreen> {
         final results = await Future.wait([
           _profileService.fetchProfile(refreshedToken),
           _eventsService.fetchEvents(refreshedToken),
+          _eventsService.fetchActivities(refreshedToken), 
           _challengeService.fetchSummary(refreshedToken),
           _challengeService.fetchWeeklyChallenges(refreshedToken),
         ]);
 
         final profile = results[0] as UserProfile?;
         final events = results[1] as List<EventSummary>;
-        final challenges = results[2] as ChallengeSummary;
-        final weeklyChallenges = results[3] as List<WeeklyChallenge>;
+        final activities = results[2] as List<ActivitySummary>;
+        final challenges = results[3] as ChallengeSummary;
+        final weeklyChallenges = results[4] as List<WeeklyChallenge>;
 
-        final todayEvents = _filterTodayEvents(events);
-        final upcomingEvents = _filterUpcomingEvents(events);
+        // Combine events and activities
+        final feedItems = [
+          ...events.map((e) => FeedItem.fromEvent(e)),
+          ...activities.map((a) => FeedItem.fromActivity(a)),
+        ];
+
+        final todayItems = _filterTodayItems(feedItems);
+        final upcomingItems = _filterUpcomingItems(feedItems);
 
         final fallbackHurra = profile?.points ?? 0;
         final hurraValue = challenges.permissionDenied
@@ -141,8 +179,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
         setState(() {
           _profile = profile;
-          _todayEvents = todayEvents;
-          _upcomingEvents = upcomingEvents;
+          _todayItems = todayItems;
+          _upcomingItems = upcomingItems;
           _hurraBalance = hurraValue;
           _antorchaBalance = antorchaValue;
           _weeklyRequirement = challenges.weeklyRequirement;
@@ -212,6 +250,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _handleClaim(WeeklyChallenge challenge) {
+    // Mark as claimed and save
+    _saveClaimedChallenge(challenge.id);
+    setState(() {}); // Refresh UI to hide button
+    
     // Show celebration dialog
     showDialog(
       context: context,
@@ -298,22 +340,40 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  List<EventSummary> _filterTodayEvents(List<EventSummary> events) {
+  List<FeedItem> _filterTodayItems(List<FeedItem> items) {
     final now = DateTime.now();
-    return events
-        .where((event) => event.startAt != null)
-        .where((event) => _isSameDay(event.startAt!, now))
-        .toList();
+    final startOfToday = DateTime(now.year, now.month, now.day);
+    final endOfToday = startOfToday.add(const Duration(days: 1));
+
+    return items.where((item) {
+      final start = item.startAt;
+      final end = item.endAt;
+      
+      if (start == null) return false;
+      
+      // Include if:
+      // 1. Starts today, OR
+      // 2. Started before today AND (no end OR ends today or later)
+      final startsToday = start.isAfter(startOfToday.subtract(const Duration(seconds: 1))) &&
+                         start.isBefore(endOfToday);
+      final inProgressToday = start.isBefore(endOfToday) &&
+                              (end == null || end.isAfter(startOfToday));
+      
+      return startsToday || inProgressToday;
+    }).toList()
+      ..sort((a, b) => (a.startAt ?? DateTime(0)).compareTo(b.startAt ?? DateTime(0)));
   }
 
-  List<EventSummary> _filterUpcomingEvents(List<EventSummary> events) {
+  List<FeedItem> _filterUpcomingItems(List<FeedItem> items) {
     final now = DateTime.now();
-    final upcoming = events
-        .where((event) => event.startAt != null)
-        .where((event) => event.startAt!.isAfter(now))
+    final endOfToday = DateTime(now.year, now.month, now.day).add(const Duration(days: 1));
+    
+    final upcoming = items
+        .where((item) => item.startAt != null)
+        .where((item) => item.startAt!.isAfter(endOfToday))
         .toList();
     upcoming.sort((a, b) => a.startAt!.compareTo(b.startAt!));
-    return upcoming.take(2).toList();
+    return upcoming.take(4).toList();
   }
 
   bool _isSameDay(DateTime a, DateTime b) {
@@ -361,10 +421,34 @@ class _HomeScreenState extends State<HomeScreen> {
             child: _buildTabContent(profile, hurraBalance, antorchaBalance),
           ),
           Positioned(
-            top: 50,
-            right: 0,
-            child: SafeArea(child: _buildBubbleMenu(profile)),
+            bottom: 100,
+            right: 16,
+            child: _buildBubbleMenu(profile),
           ),
+          // Full-screen loading overlay
+          if (_isLoading)
+            Container(
+              color: const Color(0xFFF6F7FB),
+              child: const Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF0A2A6B)),
+                    ),
+                    SizedBox(height: 24),
+                    Text(
+                      'Cargando...',
+                      style: TextStyle(
+                        color: Color(0xFF5B6B86),
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -409,7 +493,7 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildTopBar(),
+            _buildTopBar(showSettings: true),
             const SizedBox(height: 8),
             _buildProfileHeader(profile),
             const SizedBox(height: 18),
@@ -421,11 +505,11 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 28),
             _buildSectionTitle('Hoy'),
             const SizedBox(height: 12),
-            _buildTodaySection(_todayEvents),
+            _buildTodaySection(_todayItems),
             const SizedBox(height: 22),
-            _buildSectionTitle('Proximos eventos'),
+            _buildSectionTitle('Próximas actividades'),
             const SizedBox(height: 12),
-            _buildUpcomingSection(_upcomingEvents),
+            _buildUpcomingSection(_upcomingItems),
             if (_isLoading) ...[
               const SizedBox(height: 18),
               const Center(child: CircularProgressIndicator()),
@@ -523,8 +607,109 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildTopBar() {
-    return const SizedBox(height: 48);
+// import 'splash_screen.dart'; // REMOVED
+
+// ...
+
+  Widget _buildTopBar({bool showSettings = false}) {
+    if (!showSettings) return const SizedBox(height: 48);
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.9),
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: IconButton(
+            icon: const Icon(Icons.settings, color: Color(0xFF0F1B2D)),
+            onPressed: _showSettingsMenu,
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showSettingsMenu() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.logout, color: Color(0xFFB64C3C)),
+                title: const Text(
+                  'Cerrar sesión',
+                  style: TextStyle(
+                    color: Color(0xFFB64C3C),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _handleLogout();
+                },
+              ),
+              const SizedBox(height: 20),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleLogout() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Cerrar sesión'),
+        content: const Text('¿Estás seguro que deseas salir?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Salir'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await _authService.signOut();
+      if (mounted) {
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          '/login',
+          (route) => false,
+        );
+      }
+    }
   }
 
   Widget _buildProfileHeader(UserProfile? profile) {
@@ -667,7 +852,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 onCheckin: challenge.isCheckin && !challenge.isCompleted
                     ? () => _handleCheckin(challenge)
                     : null,
-                onClaim: challenge.isCompleted
+                onClaim: challenge.isCompleted && !_claimedChallengeIds.contains(challenge.id)
                     ? () => _handleClaim(challenge)
                     : null,
                 isCheckingIn: _isCheckingIn,
@@ -679,15 +864,15 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildTodaySection(List<EventSummary> events) {
-    if (events.isEmpty) {
+  Widget _buildTodaySection(List<FeedItem> items) {
+    if (items.isEmpty) {
       return SizedBox(
         height: 180,
         child: ListView(
           scrollDirection: Axis.horizontal,
           children: const [
             _EventCard(
-              title: 'Sin eventos',
+              title: 'Sin eventos ni actividades',
               dateLabel: 'Hoy',
               points: 0,
               highlight: false,
@@ -701,13 +886,16 @@ class _HomeScreenState extends State<HomeScreen> {
       height: 180,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        itemCount: events.length,
+        itemCount: items.length,
         separatorBuilder: (_, __) => const SizedBox(width: 14),
         itemBuilder: (context, index) {
-          final event = events[index];
+          final item = items[index];
           return _EventCard(
-            title: event.title,
-            dateLabel: _formatDateLabel(event.startAt),
+            title: item.title,
+            dateLabel: _formatTimeLabel(item.startAt),
+            subtitle: item.locationName,
+            badge: item.isEvent ? 'Evento' : 'Actividad',
+            badgeColor: item.isEvent ? const Color(0xFF0A2A6B) : const Color(0xFF16A085),
             points: 0,
             highlight: index == 0,
           );
@@ -716,14 +904,23 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildUpcomingSection(List<EventSummary> events) {
-    if (events.isEmpty) {
+  String _formatTimeLabel(DateTime? date) {
+    if (date == null) return '--';
+    final hour = date.hour;
+    final minute = date.minute.toString().padLeft(2, '0');
+    final period = hour >= 12 ? 'pm' : 'am';
+    final displayHour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
+    return '$displayHour:$minute $period';
+  }
+
+  Widget _buildUpcomingSection(List<FeedItem> items) {
+    if (items.isEmpty) {
       return Row(
         children: const [
           Expanded(
             child: _EventTile(
               dateLabel: '--',
-              title: 'Sin eventos',
+              title: 'Sin próximos eventos',
               points: 0,
             ),
           ),
@@ -731,13 +928,14 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
-    final tiles = events.take(2).toList();
+    final tiles = items.take(2).toList();
     return Row(
       children: [
         Expanded(
           child: _EventTile(
             dateLabel: _formatDateLabel(tiles.first.startAt),
             title: tiles.first.title,
+            badge: tiles.first.isEvent ? 'Evento' : 'Actividad',
             points: 0,
           ),
         ),
@@ -747,8 +945,9 @@ class _HomeScreenState extends State<HomeScreen> {
             child: _EventTile(
               dateLabel: _formatDateLabel(tiles.last.startAt),
               title: tiles.last.title,
-              points: 0,
+              badge: tiles.last.isEvent ? 'Evento' : 'Actividad',
               accentColor: const Color(0xFF7DD56F),
+              points: 0,
             ),
           ),
         ],
@@ -796,6 +995,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildQrButton(String? matricula) {
     return FloatingActionButton(
+      heroTag: 'home_qr_scan_btn',
       onPressed: () => _showQr(matricula),
       backgroundColor: const Color(0xFF0A2A6B),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
@@ -881,7 +1081,7 @@ class _HomeScreenState extends State<HomeScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'QR del alumno',
+                  'Mi QR personal',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         color: Colors.white,
                         fontWeight: FontWeight.w600,
@@ -925,11 +1125,26 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _openQrScanner() async {
-    final result = await Navigator.of(context).push<String>(
+    final rawResult = await Navigator.of(context).push<String>(
       MaterialPageRoute(builder: (_) => const QrScannerScreen()),
     );
 
-    if (!mounted || result == null || result.isEmpty) {
+    if (!mounted || rawResult == null || rawResult.isEmpty) {
+      return;
+    }
+    
+    final result = rawResult.trim();
+
+    // Check if it's a location QR
+    if (result.startsWith('LOCATION:') || result.startsWith('L:')) {
+      await _handleLocationScan(result);
+      return;
+    }
+
+    // Check for potential invalid formats before assuming it's a student card
+    // Student IDs shouldn't have colons or be excessively long
+    if (result.contains(':') || result.length > 20) {
+      _showErrorDialog('Código no reconocido', 'El QR escaneado no es válido para esta app.');
       return;
     }
 
@@ -942,11 +1157,145 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (saved == true && mounted) {
       _showSnackBar('Tarjeta guardada en tu album.');
-      // Switch to Album tab
-      setState(() {
-        _selectedIndex = 2;
-      });
+      // Navigate to Album screen
+      _openAlbum();
     }
+  }
+
+  Future<void> _handleLocationScan(String qrResult) async {
+    // Show verification loading dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(
+        child: CircularProgressIndicator(color: Colors.white),
+      ),
+    );
+
+    try {
+      final session = await _authService.getValidSession();
+      final token = session?.idToken;
+      
+      if (token == null) {
+        if (mounted) Navigator.pop(context); // Close loading
+        _showSnackBar('No hay sesión activa');
+        return;
+      }
+
+      final result = await _challengeService.scanLocation(token, qrResult);
+      
+      if (!mounted) return;
+      Navigator.pop(context); // Close loading
+
+      final locationName = result['location_name'] ?? 'Ubicación';
+      final message = result['message'] ?? 'Check-in exitoso';
+      final completed = result['challenges_completed'] as List<dynamic>? ?? [];
+
+      _showLocationResultDialog(
+        locationName: locationName,
+        message: message,
+        rewards: completed,
+      );
+      
+      // Refresh dashboard to show updated coins/progress
+      _loadDashboard();
+
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context); // Close loading
+      
+      final errorMsg = e.toString().replaceAll('Exception: ', '');
+      _showErrorDialog('Error al escanear', errorMsg);
+    }
+  }
+
+  void _showLocationResultDialog({
+    required String locationName,
+    required String message,
+    required List<dynamic> rewards,
+  }) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE6EEF9),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.map, color: Color(0xFF4A7BD9)),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                locationName,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(message, style: const TextStyle(fontSize: 16)),
+            if (rewards.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              const Divider(),
+              const SizedBox(height: 8),
+              const Text(
+                '¡Retos Completados!',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF2E7D32),
+                ),
+              ),
+              const SizedBox(height: 8),
+              ...rewards.map((r) => Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Row(
+                  children: [
+                    const Icon(Icons.emoji_events, size: 18, color: Color(0xFFF1C40F)),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(r['name'] ?? 'Reto completado')),
+                    if (r['hurras'] != null)
+                       Text(
+                        '+${r['hurras']} H',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                  ],
+                ),
+              )),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Genial'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showErrorDialog(String title, String message) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title, style: const TextStyle(color: Color(0xFFB64C3C))),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Entendido'),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -1016,12 +1365,18 @@ class _CoinChip extends StatelessWidget {
 class _EventCard extends StatelessWidget {
   final String title;
   final String dateLabel;
+  final String? subtitle;
+  final String? badge;
+  final Color? badgeColor;
   final int points;
   final bool highlight;
 
   const _EventCard({
     required this.title,
     required this.dateLabel,
+    this.subtitle,
+    this.badge,
+    this.badgeColor,
     required this.points,
     required this.highlight,
   });
@@ -1058,30 +1413,91 @@ class _EventCard extends StatelessWidget {
             left: 14,
             child: _DateBadge(label: dateLabel),
           ),
+          if (badge != null)
+            Positioned(
+              top: 14,
+              right: 14,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: badgeColor ?? const Color(0xFF0A2A6B),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  badge!,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
           Positioned(
             bottom: 18,
             left: 16,
             right: 16,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    color: textColor,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                Row(
-                  children: [
-                    const Icon(Icons.local_fire_department,
-                        color: Colors.white, size: 18),
-                    const SizedBox(width: 4),
-                    Text(
-                      points.toString(),
-                      style: const TextStyle(color: Colors.white),
+                if (subtitle != null && subtitle!.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.location_on,
+                          size: 14,
+                          color: textColor.withOpacity(0.7),
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            subtitle!,
+                            style: TextStyle(
+                              color: textColor.withOpacity(0.7),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
+                  ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: TextStyle(
+                          color: textColor,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (points > 0)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 8),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.local_fire_department,
+                                color: Colors.white, size: 18),
+                            const SizedBox(width: 4),
+                            Text(
+                              points.toString(),
+                              style: const TextStyle(color: Colors.white),
+                            ),
+                          ],
+                        ),
+                      ),
                   ],
                 ),
               ],
@@ -1321,12 +1737,14 @@ class _InfoCard extends StatelessWidget {
 class _EventTile extends StatelessWidget {
   final String dateLabel;
   final String title;
+  final String? badge;
   final int points;
   final Color? accentColor;
 
   const _EventTile({
     required this.dateLabel,
     required this.title,
+    this.badge,
     required this.points,
     this.accentColor,
   });

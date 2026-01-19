@@ -44,7 +44,7 @@ class _UserCardScreenState extends State<UserCardScreen> {
 
   static const _placeholders = {
     'background': 'assets/card/backgrounds/default.svg',
-    'banner': 'assets/card/banners/default.svg',
+    'banner': 'assets/card/banners/default.png',
     'title_badge': 'assets/card/title_badges/default.svg',
     'medal': 'assets/card/medals/placeholder.svg',
   };
