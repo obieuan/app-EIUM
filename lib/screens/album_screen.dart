@@ -251,14 +251,35 @@ class _AlbumCard extends StatelessWidget {
                           width: 340,
                           height: 540,
                           decoration: BoxDecoration(
-                            color: const Color(0xFFE8EEF8),
                             borderRadius: BorderRadius.circular(28),
+                            gradient: const LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                Color(0xFF0A2A6B),
+                                Color(0xFF1E4A9A),
+                              ],
+                            ),
                           ),
-                          child: const Center(
-                            child: Icon(
-                              Icons.badge_outlined,
-                              size: 64,
-                              color: Color(0xFFB9C7E6),
+                          child: Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: const [
+                                Icon(
+                                  Icons.error_outline,
+                                  size: 64,
+                                  color: Color(0xFFB9C7E6),
+                                ),
+                                SizedBox(height: 16),
+                                Text(
+                                  'Error al cargar\nla imagen',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: Color(0xFFD3DDF2),
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
@@ -267,14 +288,51 @@ class _AlbumCard extends StatelessWidget {
                         width: 340,
                         height: 540,
                         decoration: BoxDecoration(
-                          color: const Color(0xFFE8EEF8),
                           borderRadius: BorderRadius.circular(28),
+                          gradient: const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              Color(0xFF0A2A6B),
+                              Color(0xFF1E4A9A),
+                            ],
+                          ),
                         ),
-                        child: const Center(
-                          child: Icon(
-                            Icons.badge_outlined,
-                            size: 64,
-                            color: Color(0xFFB9C7E6),
+                        child: Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: const [
+                              Icon(
+                                Icons.badge_outlined,
+                                size: 80,
+                                color: Color(0xFFB9C7E6),
+                              ),
+                              SizedBox(height: 20),
+                              Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 40),
+                                child: Text(
+                                  'Próximamente\npreview de tarjeta',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: Color(0xFFD3DDF2),
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                              SizedBox(height: 12),
+                              Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 40),
+                                child: Text(
+                                  'Disponible próximamente en la app móvil',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: Color(0xFF8FA8CC),
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
@@ -308,12 +366,39 @@ class _AlbumCard extends StatelessWidget {
 
   Widget _buildPlaceholder() {
     return Container(
-      color: const Color(0xFFE8EEF8),
-      child: const Center(
-        child: Icon(
-          Icons.badge_outlined,
-          size: 48,
-          color: Color(0xFFB9C7E6),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            const Color(0xFF0A2A6B),
+            const Color(0xFF1E4A9A),
+          ],
+        ),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.badge_outlined,
+              size: 48,
+              color: Color(0xFFB9C7E6),
+            ),
+            const SizedBox(height: 12),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20),
+              child: Text(
+                'Próximamente\npreview de tarjeta',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Color(0xFFD3DDF2),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
