@@ -117,16 +117,16 @@ class _CardPreviewScreenState extends State<CardPreviewScreen> {
 
     Uint8List? snapshot;
     try {
-      debugPrint('CardPreview: Attempting to capture snapshot...');
+      print('[ALBUM] CardPreview: Attempting to capture snapshot...');
       snapshot = await _captureCard();
       if (snapshot != null) {
-        debugPrint('CardPreview: Snapshot captured successfully (${snapshot.length} bytes)');
+        print('[ALBUM] CardPreview: Snapshot captured successfully (${snapshot.length} bytes)');
       } else {
-        debugPrint('CardPreview: Snapshot is NULL after capture');
+        print('[ALBUM] CardPreview: Snapshot is NULL after capture');
       }
     } catch (e, stackTrace) {
-      debugPrint('CardPreview: Snapshot capture error: $e');
-      debugPrint('CardPreview: Stack trace: $stackTrace');
+      print('[ALBUM] CardPreview: Snapshot capture error: $e');
+      print('[ALBUM] CardPreview: Stack trace: $stackTrace');
     }
 
     final session = await _authService.getValidSession();
@@ -140,7 +140,7 @@ class _CardPreviewScreenState extends State<CardPreviewScreen> {
     }
 
     try {
-      debugPrint('CardPreview: Sending scan request with snapshot: ${snapshot != null ? "YES (${snapshot.length} bytes)" : "NO"}');
+      print('[ALBUM] CardPreview: Sending scan request with snapshot: ${snapshot != null ? "YES (${snapshot.length} bytes)" : "NO"}');
       final result = await _albumService.scanCard(
         token,
         widget.matricula,
@@ -184,39 +184,39 @@ class _CardPreviewScreenState extends State<CardPreviewScreen> {
   }
 
   Future<Uint8List?> _captureCard() async {
-    debugPrint('CardPreview: _captureCard - Looking for RenderRepaintBoundary...');
+    print('[ALBUM] CardPreview: _captureCard - Looking for RenderRepaintBoundary...');
 
     final context = _cardKey.currentContext;
     if (context == null) {
-      debugPrint('CardPreview: _captureCard - GlobalKey context is NULL');
+      print('[ALBUM] CardPreview: _captureCard - GlobalKey context is NULL');
       return null;
     }
 
     final renderObject = context.findRenderObject();
     if (renderObject == null) {
-      debugPrint('CardPreview: _captureCard - RenderObject is NULL');
+      print('[ALBUM] CardPreview: _captureCard - RenderObject is NULL');
       return null;
     }
 
     if (renderObject is! RenderRepaintBoundary) {
-      debugPrint('CardPreview: _captureCard - RenderObject is not RepaintBoundary');
+      print('[ALBUM] CardPreview: _captureCard - RenderObject is not RepaintBoundary');
       return null;
     }
 
     final boundary = renderObject as RenderRepaintBoundary;
-    debugPrint('CardPreview: _captureCard - Found RepaintBoundary, creating image...');
+    print('[ALBUM] CardPreview: _captureCard - Found RepaintBoundary, creating image...');
 
     final image = await boundary.toImage(pixelRatio: 2.0);
-    debugPrint('CardPreview: _captureCard - Image created (${image.width}x${image.height})');
+    print('[ALBUM] CardPreview: _captureCard - Image created (${image.width}x${image.height})');
 
     final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
     if (byteData == null) {
-      debugPrint('CardPreview: _captureCard - ByteData is NULL');
+      print('[ALBUM] CardPreview: _captureCard - ByteData is NULL');
       return null;
     }
 
     final bytes = byteData.buffer.asUint8List();
-    debugPrint('CardPreview: _captureCard - Success! ${bytes.length} bytes');
+    print('[ALBUM] CardPreview: _captureCard - Success! ${bytes.length} bytes');
     return bytes;
   }
 

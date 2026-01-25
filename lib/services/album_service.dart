@@ -145,11 +145,9 @@ class AlbumService {
     String matricula,
     Uint8List? snapshotBytes,
   ) async {
-    if (kDebugMode) {
-      debugPrint('AlbumService: scanCard called');
-      debugPrint('  - matricula: $matricula');
-      debugPrint('  - snapshotBytes: ${snapshotBytes != null ? "${snapshotBytes.length} bytes" : "NULL"}');
-    }
+    print('[ALBUM] AlbumService: scanCard called');
+    print('[ALBUM]   - matricula: $matricula');
+    print('[ALBUM]   - snapshotBytes: ${snapshotBytes != null ? "${snapshotBytes.length} bytes" : "NULL"}');
 
     final baseUrl = _normalizeBaseUrl(
       AppConfig.eventsApiBaseUrl.isNotEmpty
@@ -157,16 +155,12 @@ class AlbumService {
           : AppConfig.apiBaseUrl,
     );
     if (baseUrl.isEmpty) {
-      if (kDebugMode) {
-        debugPrint('AlbumService: baseUrl is empty!');
-      }
+      print('[ALBUM] AlbumService: baseUrl is empty!');
       return null;
     }
 
     final uri = Uri.parse('$baseUrl/api/mobile/album/scan');
-    if (kDebugMode) {
-      debugPrint('AlbumService: POST $uri');
-    }
+    print('[ALBUM] AlbumService: POST $uri');
 
     final request = http.MultipartRequest('POST', uri)
       ..headers['Authorization'] = 'Bearer $token'
@@ -182,35 +176,25 @@ class AlbumService {
           filename: filename,
         ),
       );
-      if (kDebugMode) {
-        debugPrint('AlbumService: Added snapshot file: $filename (${snapshotBytes.length} bytes)');
-      }
+      print('[ALBUM] AlbumService: Added snapshot file: $filename (${snapshotBytes.length} bytes)');
     } else {
-      if (kDebugMode) {
-        debugPrint('AlbumService: NO snapshot file added to request');
-      }
+      print('[ALBUM] AlbumService: NO snapshot file added to request');
     }
 
     final streamed = await _client.send(request);
-    if (kDebugMode) {
-      debugPrint('AlbumService: Response status: ${streamed.statusCode}');
-    }
+    print('[ALBUM] AlbumService: Response status: ${streamed.statusCode}');
 
     if (streamed.statusCode == 401) {
       throw const TokenExpiredException();
     }
     if (streamed.statusCode != 200) {
-      if (kDebugMode) {
-        final errorBody = await streamed.stream.bytesToString();
-        debugPrint('AlbumService: Error response: $errorBody');
-      }
+      final errorBody = await streamed.stream.bytesToString();
+      print('[ALBUM] AlbumService: Error response: $errorBody');
       return null;
     }
 
     final body = await streamed.stream.bytesToString();
-    if (kDebugMode) {
-      debugPrint('AlbumService: Response body: $body');
-    }
+    print('[ALBUM] AlbumService: Response body: $body');
 
     final payload = _tryDecodeJson(body);
     if (payload is Map<String, dynamic>) {
