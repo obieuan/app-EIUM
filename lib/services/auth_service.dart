@@ -1,13 +1,14 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_appauth/flutter_appauth.dart';
 import 'package:openid_client/openid_client.dart';
 import 'package:openid_client/openid_client_browser.dart' as oidc;
 
 import '../config/azure_config.dart';
+import '../config/app_config.dart';
 import '../utils/jwt_utils.dart';
+import '../utils/web_fragment_storage.dart';
 import 'session_storage.dart';
 
 class AuthException implements Exception {
@@ -32,7 +33,9 @@ class AuthService {
 
   Future<bool> checkAppStatus() async {
     try {
-      final baseUrl = dotenv.env['EVENTS_API_BASE_URL'] ?? 'http://127.0.0.1:8000';
+      final baseUrl = AppConfig.eventsApiBaseUrl.isEmpty
+          ? 'http://127.0.0.1:8000'
+          : AppConfig.eventsApiBaseUrl;
       final uri = Uri.parse('$baseUrl/api/vnext/status');
       
       final response = await http.get(uri);
@@ -333,10 +336,16 @@ class AuthService {
   }
 
   AuthSession? _sessionFromFragment() {
-    final fragment = Uri.base.fragment;
+    var fragment = Uri.base.fragment;
     if (fragment.isEmpty) {
-      debugPrint('WEB auth: fragment empty.');
-      return null;
+      fragment = readStoredAuthFragment() ?? '';
+      if (fragment.isNotEmpty) {
+        clearStoredAuthFragment();
+        debugPrint('WEB auth: recovered fragment from storage.');
+      } else {
+        debugPrint('WEB auth: fragment empty.');
+        return null;
+      }
     }
 
     Map<String, String> params;

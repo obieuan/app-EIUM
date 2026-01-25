@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../config/app_config.dart';
 import 'package:http/http.dart' as http;
 
 import '../models/album_entry.dart';
@@ -17,7 +17,9 @@ class AlbumService {
   /// Fetch a preview of another user's card by matricula.
   Future<PublicCardData?> fetchPreview(String token, String matricula) async {
     final baseUrl = _normalizeBaseUrl(
-      dotenv.env['EVENTS_API_BASE_URL'] ?? dotenv.env['API_BASE_URL'] ?? '',
+      AppConfig.eventsApiBaseUrl.isNotEmpty
+          ? AppConfig.eventsApiBaseUrl
+          : AppConfig.apiBaseUrl,
     );
     if (baseUrl.isEmpty) {
       return null;
@@ -56,7 +58,9 @@ class AlbumService {
   /// Fetch all album entries for the current user.
   Future<List<AlbumEntry>> fetchAlbum(String token) async {
     final baseUrl = _normalizeBaseUrl(
-      dotenv.env['EVENTS_API_BASE_URL'] ?? dotenv.env['API_BASE_URL'] ?? '',
+      AppConfig.eventsApiBaseUrl.isNotEmpty
+          ? AppConfig.eventsApiBaseUrl
+          : AppConfig.apiBaseUrl,
     );
     if (baseUrl.isEmpty) {
       return [];
@@ -95,7 +99,9 @@ class AlbumService {
     Uint8List? snapshotBytes,
   ) async {
     final baseUrl = _normalizeBaseUrl(
-      dotenv.env['EVENTS_API_BASE_URL'] ?? dotenv.env['API_BASE_URL'] ?? '',
+      AppConfig.eventsApiBaseUrl.isNotEmpty
+          ? AppConfig.eventsApiBaseUrl
+          : AppConfig.apiBaseUrl,
     );
     if (baseUrl.isEmpty) {
       return null;
@@ -129,6 +135,53 @@ class AlbumService {
     final payload = _tryDecodeJson(body);
     if (payload is Map<String, dynamic>) {
       return AlbumEntry.fromJson(payload);
+    }
+    return null;
+  }
+
+  /// Scan a card and update/create the album entry, optionally completing MUTUAL_SCAN.
+  Future<Map<String, dynamic>?> scanCard(
+    String token,
+    String matricula,
+    Uint8List? snapshotBytes,
+  ) async {
+    final baseUrl = _normalizeBaseUrl(
+      AppConfig.eventsApiBaseUrl.isNotEmpty
+          ? AppConfig.eventsApiBaseUrl
+          : AppConfig.apiBaseUrl,
+    );
+    if (baseUrl.isEmpty) {
+      return null;
+    }
+
+    final uri = Uri.parse('$baseUrl/api/mobile/album/scan');
+    final request = http.MultipartRequest('POST', uri)
+      ..headers['Authorization'] = 'Bearer $token'
+      ..headers['Accept'] = 'application/json'
+      ..fields['matricula'] = matricula;
+
+    if (snapshotBytes != null && snapshotBytes.isNotEmpty) {
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          'snapshot',
+          snapshotBytes,
+          filename: 'snapshot_${DateTime.now().millisecondsSinceEpoch}.png',
+        ),
+      );
+    }
+
+    final streamed = await _client.send(request);
+    if (streamed.statusCode == 401) {
+      throw const TokenExpiredException();
+    }
+    if (streamed.statusCode != 200) {
+      return null;
+    }
+
+    final body = await streamed.stream.bytesToString();
+    final payload = _tryDecodeJson(body);
+    if (payload is Map<String, dynamic>) {
+      return payload;
     }
     return null;
   }

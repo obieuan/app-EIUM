@@ -33,6 +33,18 @@
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
+  <script>
+    (function () {
+      var hash = window.location.hash || '';
+      if (hash.indexOf('access_token=') !== -1 || hash.indexOf('id_token=') !== -1) {
+        try {
+          localStorage.setItem('auth_fragment', hash.substring(1));
+        } catch (e) {
+          // Ignore storage failures (private mode, blocked storage).
+        }
+      }
+    })();
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

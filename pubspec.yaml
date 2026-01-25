@@ -81,7 +81,6 @@ flutter:
     - assets/card/photo_frames/
     - assets/card/title_badges/
     - assets/card/medals/
-    - .env
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/assets-and-images/#resolution-aware

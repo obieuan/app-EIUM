@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../config/app_config.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 
@@ -15,7 +15,9 @@ class ProfileService {
 
   Future<UserProfile?> fetchProfile(String token) async {
     final baseUrl = _normalizeBaseUrl(
-      dotenv.env['EVENTS_API_BASE_URL'] ?? dotenv.env['API_BASE_URL'] ?? '',
+      AppConfig.eventsApiBaseUrl.isNotEmpty
+          ? AppConfig.eventsApiBaseUrl
+          : AppConfig.apiBaseUrl,
     );
     if (baseUrl.isEmpty) {
       return null;
@@ -56,7 +58,9 @@ class ProfileService {
 
   Future<String?> updatePhoto(String token, XFile file) async {
     final baseUrl = _normalizeBaseUrl(
-      dotenv.env['EVENTS_API_BASE_URL'] ?? dotenv.env['API_BASE_URL'] ?? '',
+      AppConfig.eventsApiBaseUrl.isNotEmpty
+          ? AppConfig.eventsApiBaseUrl
+          : AppConfig.apiBaseUrl,
     );
     if (baseUrl.isEmpty) {
       return null;

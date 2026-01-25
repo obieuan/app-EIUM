@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../config/app_config.dart';
 import 'package:http/http.dart' as http;
 
 import '../models/card_asset.dart';
@@ -17,7 +17,9 @@ class CardService {
     String section,
   ) async {
     final baseUrl = _normalizeBaseUrl(
-      dotenv.env['EVENTS_API_BASE_URL'] ?? dotenv.env['API_BASE_URL'] ?? '',
+      AppConfig.eventsApiBaseUrl.isNotEmpty
+          ? AppConfig.eventsApiBaseUrl
+          : AppConfig.apiBaseUrl,
     );
     if (baseUrl.isEmpty) {
       return [];
@@ -49,7 +51,9 @@ class CardService {
 
   Future<CardSelection?> fetchSelection(String token) async {
     final baseUrl = _normalizeBaseUrl(
-      dotenv.env['EVENTS_API_BASE_URL'] ?? dotenv.env['API_BASE_URL'] ?? '',
+      AppConfig.eventsApiBaseUrl.isNotEmpty
+          ? AppConfig.eventsApiBaseUrl
+          : AppConfig.apiBaseUrl,
     );
     if (baseUrl.isEmpty) {
       return null;
@@ -93,7 +97,9 @@ class CardService {
     int? slot,
   }) async {
     final baseUrl = _normalizeBaseUrl(
-      dotenv.env['EVENTS_API_BASE_URL'] ?? dotenv.env['API_BASE_URL'] ?? '',
+      AppConfig.eventsApiBaseUrl.isNotEmpty
+          ? AppConfig.eventsApiBaseUrl
+          : AppConfig.apiBaseUrl,
     );
     if (baseUrl.isEmpty) {
       return false;
@@ -124,7 +130,9 @@ class CardService {
 
   Future<bool> purchaseAsset(String token, int assetId) async {
     final baseUrl = _normalizeBaseUrl(
-      dotenv.env['EVENTS_API_BASE_URL'] ?? dotenv.env['API_BASE_URL'] ?? '',
+      AppConfig.eventsApiBaseUrl.isNotEmpty
+          ? AppConfig.eventsApiBaseUrl
+          : AppConfig.apiBaseUrl,
     );
     if (baseUrl.isEmpty) {
       return false;

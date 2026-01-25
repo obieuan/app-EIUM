@@ -12,7 +12,6 @@ import '../models/public_card_data.dart';
 import '../services/album_service.dart';
 import '../services/api_exceptions.dart';
 import '../services/auth_service.dart';
-import '../services/challenge_service.dart';
 
 class CardPreviewScreen extends StatefulWidget {
   final String matricula;
@@ -50,7 +49,6 @@ class _CardPreviewScreenState extends State<CardPreviewScreen> {
   final GlobalKey _cardKey = GlobalKey();
   final AuthService _authService = AuthService();
   final AlbumService _albumService = AlbumService();
-  final ChallengeService _challengeService = ChallengeService();
 
   PublicCardData? _cardData;
   bool _isLoading = true;
@@ -137,7 +135,7 @@ class _CardPreviewScreenState extends State<CardPreviewScreen> {
     }
 
     try {
-      final entry = await _albumService.saveEntry(
+      final result = await _albumService.scanCard(
         token,
         widget.matricula,
         snapshot,
@@ -145,24 +143,22 @@ class _CardPreviewScreenState extends State<CardPreviewScreen> {
 
       if (!mounted) return;
 
-      if (entry != null) {
-        // Intentar completar el reto MUTUAL_SCAN si el usuario tiene uno activo
-        try {
-          await _challengeService.completeMutualScanChallenge(
-            token,
-            widget.matricula,
-          );
-          if (kDebugMode) {
-            debugPrint('Challenge MUTUAL_SCAN completed successfully');
-          }
-        } catch (challengeError) {
-          // Si falla, no es problema - el usuario podría no tener un reto activo
-          if (kDebugMode) {
-            debugPrint('Challenge completion failed (expected if no active challenge): $challengeError');
-          }
+      if (result != null) {
+        final albumStatus = result['album_status']?.toString() ?? 'created';
+        final challenge = result['challenge'] as Map<String, dynamic>?;
+        final challengeStatus = challenge?['status']?.toString();
+
+        var message = albumStatus == 'updated'
+            ? 'Tarjeta actualizada en tu album.'
+            : 'Tarjeta guardada en tu album.';
+
+        if (challengeStatus == 'completed') {
+          message = 'Tarjeta guardada y reto completado.';
+        } else if (challengeStatus == 'already_completed') {
+          message = 'Tarjeta guardada. Reto ya completado.';
         }
 
-        _showSnackBar('Tarjeta guardada en tu album.');
+        _showSnackBar(message);
         Navigator.of(context).pop(true);
       } else {
         _showSnackBar('No se pudo guardar la tarjeta.');

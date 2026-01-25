@@ -1,11 +1,12 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+
+import 'app_config.dart';
 
 class AzureConfig {
-  static String get clientId => dotenv.env['AZURE_CLIENT_ID'] ?? '';
-  static String get tenantId => dotenv.env['AZURE_TENANT_ID'] ?? '';
-  static String get redirectUriMobile => dotenv.env['AZURE_REDIRECT_URI'] ?? '';
-  static String get redirectUriWeb => dotenv.env['AZURE_REDIRECT_URI_WEB'] ?? '';
+  static String get clientId => AppConfig.azureClientId;
+  static String get tenantId => AppConfig.azureTenantId;
+  static String get redirectUriMobile => AppConfig.azureRedirectUriMobile;
+  static String get redirectUriWeb => AppConfig.azureRedirectUriWeb;
   static String get redirectUri {
     if (kIsWeb) {
       return redirectUriWeb.isNotEmpty ? redirectUriWeb : redirectUriMobile;

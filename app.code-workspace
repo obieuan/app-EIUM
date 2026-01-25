@@ -7,13 +7,7 @@
 			"path": "../sistema-centralizado"
 		},
 		{
-			"path": "../sistema-de-eventos-v2"
-		},
-		{
 			"path": "../sistema-de-eventos-v3"
-		},
-		{
-			"path": "../sistema-de-talleres"
 		}
 	]
 }

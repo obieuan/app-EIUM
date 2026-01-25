@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../config/app_config.dart';
 import 'package:http/http.dart' as http;
 
 import '../models/checkin_result.dart';
@@ -37,7 +37,7 @@ class ChallengeService {
   final http.Client _client;
 
   Future<ChallengeSummary> fetchSummary(String token) async {
-    final baseUrl = _normalizeBaseUrl(dotenv.env['EVENTS_API_BASE_URL'] ?? '');
+    final baseUrl = _normalizeBaseUrl(AppConfig.eventsApiBaseUrl);
     if (baseUrl.isEmpty) {
       return ChallengeSummary.empty();
     }
@@ -139,7 +139,7 @@ class ChallengeService {
   }
 
   Future<List<WeeklyChallenge>> fetchWeeklyChallenges(String token) async {
-    final baseUrl = _normalizeBaseUrl(dotenv.env['EVENTS_API_BASE_URL'] ?? '');
+    final baseUrl = _normalizeBaseUrl(AppConfig.eventsApiBaseUrl);
     if (baseUrl.isEmpty) {
       return [];
     }
@@ -184,7 +184,7 @@ class ChallengeService {
   /// Attempts to complete a MUTUAL_SCAN challenge when scanning another user's QR.
   /// Returns a result indicating success, already completed, or no matching challenge.
   Future<Map<String, dynamic>> scanLocation(String token, String qrCode) async {
-    final baseUrl = _normalizeBaseUrl(dotenv.env['EVENTS_API_BASE_URL'] ?? '');
+    final baseUrl = _normalizeBaseUrl(AppConfig.eventsApiBaseUrl);
     if (baseUrl.isEmpty) {
       throw Exception('No events API configuration');
     }
@@ -220,7 +220,7 @@ class ChallengeService {
   /// Attempts to complete a MUTUAL_SCAN challenge when scanning another user's QR.
   /// Returns a result indicating success, already completed, or no matching challenge.
   Future<MutualScanResult> tryCompleteMutualScan(String token, String peerMatricula) async {
-    final baseUrl = _normalizeBaseUrl(dotenv.env['EVENTS_API_BASE_URL'] ?? '');
+    final baseUrl = _normalizeBaseUrl(AppConfig.eventsApiBaseUrl);
     if (baseUrl.isEmpty) {
       return MutualScanResult.noChallenge();
     }
@@ -281,7 +281,7 @@ class ChallengeService {
     String token,
     String peerMatricula,
   ) async {
-    final baseUrl = _normalizeBaseUrl(dotenv.env['EVENTS_API_BASE_URL'] ?? '');
+    final baseUrl = _normalizeBaseUrl(AppConfig.eventsApiBaseUrl);
     if (baseUrl.isEmpty) {
       throw Exception('No events API configuration');
     }
@@ -327,7 +327,7 @@ class ChallengeService {
   }
 
   Future<CheckinResult> checkin(String token, {DateTime? date}) async {
-    final baseUrl = _normalizeBaseUrl(dotenv.env['EVENTS_API_BASE_URL'] ?? '');
+    final baseUrl = _normalizeBaseUrl(AppConfig.eventsApiBaseUrl);
     if (baseUrl.isEmpty) {
       return CheckinResult.error('No hay configuracion de eventos.');
     }

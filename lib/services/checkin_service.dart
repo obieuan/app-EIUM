@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../config/app_config.dart';
 import 'package:http/http.dart' as http;
 
 class CheckinActivity {
@@ -63,8 +63,9 @@ class CheckinResult {
 
 class CheckinService {
   static String _getBaseUrl() {
-    final base = dotenv.env['EVENTS_API_BASE_URL'] ?? 
-                 dotenv.env['API_BASE_URL'] ?? 
+    final base = AppConfig.eventsApiBaseUrl.isNotEmpty
+        ? AppConfig.eventsApiBaseUrl
+        : AppConfig.apiBaseUrl;
                  '';
     var url = base.trim();
     if (url.endsWith('/')) {

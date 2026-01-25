@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../config/app_config.dart';
 import 'package:http/http.dart' as http;
 
 import '../models/activity_summary.dart';
@@ -14,7 +14,7 @@ class EventsService {
   final http.Client _client;
 
   Future<List<EventSummary>> fetchEvents(String token) async {
-    final baseUrl = _normalizeBaseUrl(dotenv.env['EVENTS_API_BASE_URL'] ?? '');
+    final baseUrl = _normalizeBaseUrl(AppConfig.eventsApiBaseUrl);
     if (baseUrl.isEmpty) {
       return [];
     }
@@ -51,7 +51,7 @@ class EventsService {
   }
 
   Future<List<ActivitySummary>> fetchActivities(String token) async {
-    final baseUrl = _normalizeBaseUrl(dotenv.env['EVENTS_API_BASE_URL'] ?? '');
+    final baseUrl = _normalizeBaseUrl(AppConfig.eventsApiBaseUrl);
     if (baseUrl.isEmpty) {
       return [];
     }
@@ -101,4 +101,3 @@ class EventsService {
     return trimmed;
   }
 }
-
