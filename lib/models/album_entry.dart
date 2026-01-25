@@ -2,6 +2,7 @@ class AlbumEntry {
   final int id;
   final String targetMatricula;
   final String targetName;
+  final String? targetPhotoUrl;
   final String? snapshotUrl;
   final DateTime? createdAt;
 
@@ -9,6 +10,7 @@ class AlbumEntry {
     required this.id,
     required this.targetMatricula,
     required this.targetName,
+    this.targetPhotoUrl,
     this.snapshotUrl,
     this.createdAt,
   });
@@ -18,6 +20,7 @@ class AlbumEntry {
       id: _parseInt(json['id']),
       targetMatricula: (json['target_matricula'] ?? '').toString(),
       targetName: (json['target_name'] ?? '').toString(),
+      targetPhotoUrl: json['target_photo_url']?.toString(),
       snapshotUrl: json['snapshot_url']?.toString(),
       createdAt: _parseDateTime(json['created_at']),
     );

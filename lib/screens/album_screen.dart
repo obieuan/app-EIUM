@@ -139,10 +139,10 @@ class _AlbumScreenState extends State<AlbumScreen> {
                     childCount: _entries.length,
                   ),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    mainAxisSpacing: 16,
-                    crossAxisSpacing: 16,
-                    childAspectRatio: 0.58,
+                    crossAxisCount: 4,
+                    mainAxisSpacing: 12,
+                    crossAxisSpacing: 12,
+                    childAspectRatio: 1.0,
                   ),
                 ),
               ),
@@ -160,64 +160,65 @@ class _AlbumCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hasSnapshot =
-        entry.snapshotUrl != null && entry.snapshotUrl!.isNotEmpty;
+    final hasPhoto = entry.targetPhotoUrl != null && entry.targetPhotoUrl!.isNotEmpty;
 
     return GestureDetector(
       onTap: () => _showCardPopup(context),
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              const Color(0xFF0A2A6B),
+              const Color(0xFF1E4A9A),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(12),
           boxShadow: const [
             BoxShadow(
               color: Color(0x14000000),
-              blurRadius: 12,
-              offset: Offset(0, 6),
+              blurRadius: 8,
+              offset: Offset(0, 4),
             ),
           ],
         ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Expanded(
-              child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(18),
+            Container(
+              width: 50,
+              height: 50,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white,
+                  width: 2,
                 ),
-                child: hasSnapshot
+              ),
+              child: ClipOval(
+                child: hasPhoto
                     ? Image.network(
-                        entry.snapshotUrl!,
+                        entry.targetPhotoUrl!,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => _buildPlaceholder(),
+                        errorBuilder: (_, __, ___) => _buildDefaultAvatar(),
                       )
-                    : _buildPlaceholder(),
+                    : _buildDefaultAvatar(),
               ),
             ),
+            const SizedBox(height: 6),
             Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    entry.targetName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF0F1B2D),
-                      fontSize: 14,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    entry.targetMatricula,
-                    style: const TextStyle(
-                      color: Color(0xFF8190AA),
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Text(
+                entry.targetName.split(' ').first,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                  fontSize: 11,
+                ),
               ),
             ),
           ],
@@ -364,41 +365,14 @@ class _AlbumCard extends StatelessWidget {
     );
   }
 
-  Widget _buildPlaceholder() {
+  Widget _buildDefaultAvatar() {
     return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            const Color(0xFF0A2A6B),
-            const Color(0xFF1E4A9A),
-          ],
-        ),
-      ),
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.badge_outlined,
-              size: 48,
-              color: Color(0xFFB9C7E6),
-            ),
-            const SizedBox(height: 12),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20),
-              child: Text(
-                'Próximamente\npreview de tarjeta',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Color(0xFFD3DDF2),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          ],
+      color: const Color(0xFFE8EEF8),
+      child: const Center(
+        child: Icon(
+          Icons.person,
+          size: 30,
+          color: Color(0xFF8190AA),
         ),
       ),
     );
