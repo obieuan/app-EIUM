@@ -1,9 +1,7 @@
 import 'dart:typed_data';
-import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -12,6 +10,7 @@ import '../models/public_card_data.dart';
 import '../services/album_service.dart';
 import '../services/api_exceptions.dart';
 import '../services/auth_service.dart';
+import '../utils/screenshot_capture.dart';
 
 class CardPreviewScreen extends StatefulWidget {
   final String matricula;
@@ -184,40 +183,8 @@ class _CardPreviewScreenState extends State<CardPreviewScreen> {
   }
 
   Future<Uint8List?> _captureCard() async {
-    print('[ALBUM] CardPreview: _captureCard - Looking for RenderRepaintBoundary...');
-
-    final context = _cardKey.currentContext;
-    if (context == null) {
-      print('[ALBUM] CardPreview: _captureCard - GlobalKey context is NULL');
-      return null;
-    }
-
-    final renderObject = context.findRenderObject();
-    if (renderObject == null) {
-      print('[ALBUM] CardPreview: _captureCard - RenderObject is NULL');
-      return null;
-    }
-
-    if (renderObject is! RenderRepaintBoundary) {
-      print('[ALBUM] CardPreview: _captureCard - RenderObject is not RepaintBoundary');
-      return null;
-    }
-
-    final boundary = renderObject as RenderRepaintBoundary;
-    print('[ALBUM] CardPreview: _captureCard - Found RepaintBoundary, creating image...');
-
-    final image = await boundary.toImage(pixelRatio: 2.0);
-    print('[ALBUM] CardPreview: _captureCard - Image created (${image.width}x${image.height})');
-
-    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-    if (byteData == null) {
-      print('[ALBUM] CardPreview: _captureCard - ByteData is NULL');
-      return null;
-    }
-
-    final bytes = byteData.buffer.asUint8List();
-    print('[ALBUM] CardPreview: _captureCard - Success! ${bytes.length} bytes');
-    return bytes;
+    print('[ALBUM] CardPreview: _captureCard - Attempting platform-specific capture...');
+    return await captureWidget(_cardKey);
   }
 
   void _showSnackBar(String message) {
