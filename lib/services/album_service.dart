@@ -145,40 +145,73 @@ class AlbumService {
     String matricula,
     Uint8List? snapshotBytes,
   ) async {
+    if (kDebugMode) {
+      debugPrint('AlbumService: scanCard called');
+      debugPrint('  - matricula: $matricula');
+      debugPrint('  - snapshotBytes: ${snapshotBytes != null ? "${snapshotBytes.length} bytes" : "NULL"}');
+    }
+
     final baseUrl = _normalizeBaseUrl(
       AppConfig.eventsApiBaseUrl.isNotEmpty
           ? AppConfig.eventsApiBaseUrl
           : AppConfig.apiBaseUrl,
     );
     if (baseUrl.isEmpty) {
+      if (kDebugMode) {
+        debugPrint('AlbumService: baseUrl is empty!');
+      }
       return null;
     }
 
     final uri = Uri.parse('$baseUrl/api/mobile/album/scan');
+    if (kDebugMode) {
+      debugPrint('AlbumService: POST $uri');
+    }
+
     final request = http.MultipartRequest('POST', uri)
       ..headers['Authorization'] = 'Bearer $token'
       ..headers['Accept'] = 'application/json'
       ..fields['matricula'] = matricula;
 
     if (snapshotBytes != null && snapshotBytes.isNotEmpty) {
+      final filename = 'snapshot_${DateTime.now().millisecondsSinceEpoch}.png';
       request.files.add(
         http.MultipartFile.fromBytes(
           'snapshot',
           snapshotBytes,
-          filename: 'snapshot_${DateTime.now().millisecondsSinceEpoch}.png',
+          filename: filename,
         ),
       );
+      if (kDebugMode) {
+        debugPrint('AlbumService: Added snapshot file: $filename (${snapshotBytes.length} bytes)');
+      }
+    } else {
+      if (kDebugMode) {
+        debugPrint('AlbumService: NO snapshot file added to request');
+      }
     }
 
     final streamed = await _client.send(request);
+    if (kDebugMode) {
+      debugPrint('AlbumService: Response status: ${streamed.statusCode}');
+    }
+
     if (streamed.statusCode == 401) {
       throw const TokenExpiredException();
     }
     if (streamed.statusCode != 200) {
+      if (kDebugMode) {
+        final errorBody = await streamed.stream.bytesToString();
+        debugPrint('AlbumService: Error response: $errorBody');
+      }
       return null;
     }
 
     final body = await streamed.stream.bytesToString();
+    if (kDebugMode) {
+      debugPrint('AlbumService: Response body: $body');
+    }
+
     final payload = _tryDecodeJson(body);
     if (payload is Map<String, dynamic>) {
       return payload;
