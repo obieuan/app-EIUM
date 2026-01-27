@@ -43,7 +43,12 @@ class ActivitySummary {
       return [];
     }
     if (value is List) {
-      return value.map((e) => e.toString()).toList();
+      return value.map((e) {
+        if (e is Map) {
+          return (e['name'] ?? e.toString()).toString();
+        }
+        return e.toString();
+      }).toList();
     }
     if (value is String && value.isNotEmpty) {
       return value.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
