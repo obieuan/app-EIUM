@@ -1599,81 +1599,85 @@ class _EventCard extends StatelessWidget {
       onTap: onTap,
       child: Container(
         width: 200,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(18),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x1A000000),
-              blurRadius: 12,
-              offset: Offset(0, 8),
-            ),
-          ],
-        ),
+        margin: const EdgeInsets.only(bottom: 50), // Space for overlapping container
         child: Stack(
           clipBehavior: Clip.none,
           children: [
             // Image container with overlay gradient
-            ClipRRect(
-              borderRadius: BorderRadius.circular(18),
-              child: Stack(
-                children: [
-                  // Background image
-                  Container(
-                    height: 160,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF0A2A6B),
-                      image: item.imagePath != null && item.imagePath!.isNotEmpty
-                          ? DecorationImage(
-                              image: NetworkImage(item.imagePath!),
-                              fit: BoxFit.cover,
+            Container(
+              height: 160,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(18),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x1A000000),
+                    blurRadius: 12,
+                    offset: Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(18),
+                child: Stack(
+                  children: [
+                    // Background image
+                    Container(
+                      height: 160,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0A2A6B),
+                        image: item.imagePath != null && item.imagePath!.isNotEmpty
+                            ? DecorationImage(
+                                image: NetworkImage(item.imagePath!),
+                                fit: BoxFit.cover,
+                              )
+                            : null,
+                      ),
+                      child: item.imagePath == null || item.imagePath!.isEmpty
+                          ? Center(
+                              child: Icon(
+                                item.isEvent ? Icons.event : Icons.local_activity,
+                                size: 60,
+                                color: Colors.white.withOpacity(0.3),
+                              ),
                             )
                           : null,
                     ),
-                    child: item.imagePath == null || item.imagePath!.isEmpty
-                        ? Center(
-                            child: Icon(
-                              item.isEvent ? Icons.event : Icons.local_activity,
-                              size: 60,
-                              color: Colors.white.withOpacity(0.3),
-                            ),
-                          )
-                        : null,
-                  ),
-                  // Gradient overlay
-                  Container(
-                    height: 160,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.transparent,
-                          Colors.black.withOpacity(0.7),
-                        ],
-                      ),
-                    ),
-                  ),
-                  // Badge
-                  Positioned(
-                    top: 12,
-                    right: 12,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    // Gradient overlay
+                    Container(
+                      height: 160,
                       decoration: BoxDecoration(
-                        color: badgeColor,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        badge,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.transparent,
+                            Colors.black.withOpacity(0.7),
+                          ],
                         ),
                       ),
                     ),
-                  ),
-                ],
+                    // Badge
+                    Positioned(
+                      top: 12,
+                      right: 12,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: badgeColor,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          badge,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
             // Info container (overlapping at bottom)
