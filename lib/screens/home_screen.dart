@@ -1592,13 +1592,13 @@ class _EventCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final badge = item.isEvent ? 'Evento' : 'Actividad';
+    final tag = item.tagName ?? (item.isEvent ? 'Evento' : 'Actividad');
     final badgeColor = item.isEvent ? const Color(0xFF0A2A6B) : const Color(0xFF16A085);
 
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 200,
+        width: 230,
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(18),
@@ -1616,54 +1616,84 @@ class _EventCard extends StatelessWidget {
             // Image container
             Stack(
               children: [
-                ClipRRect(
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(18),
-                    topRight: Radius.circular(18),
-                  ),
-                  child: Container(
-                    height: 140,
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF0A2A6B),
-                      image: item.imagePath != null && item.imagePath!.isNotEmpty
-                          ? DecorationImage(
-                              image: NetworkImage(item.imagePath!),
-                              fit: BoxFit.cover,
-                            )
-                          : null,
+                Container(
+                  height: 140,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0A2A6B),
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(18),
+                      topRight: Radius.circular(18),
                     ),
-                    child: item.imagePath == null || item.imagePath!.isEmpty
-                        ? Center(
-                            child: Icon(
-                              item.isEvent ? Icons.event : Icons.local_activity,
-                              size: 60,
-                              color: Colors.white.withOpacity(0.3),
-                            ),
+                    image: item.imagePath != null && item.imagePath!.isNotEmpty
+                        ? DecorationImage(
+                            image: NetworkImage(item.imagePath!),
+                            fit: BoxFit.cover,
                           )
                         : null,
                   ),
+                  child: item.imagePath == null || item.imagePath!.isEmpty
+                      ? Center(
+                          child: Icon(
+                            item.isEvent ? Icons.event : Icons.local_activity,
+                            size: 60,
+                            color: Colors.white.withOpacity(0.3),
+                          ),
+                        )
+                      : null,
                 ),
-                // Badge
+                // Time badge (top left)
                 Positioned(
                   top: 12,
-                  right: 12,
+                  left: 12,
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: badgeColor,
+                      color: Colors.black.withOpacity(0.6),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Text(
-                      badge,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.schedule,
+                          size: 12,
+                          color: Colors.white,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          _formatTimeLabel(item.startAt),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
+                // Tag badge (top right)
+                if (tag.isNotEmpty)
+                  Positioned(
+                    top: 12,
+                    right: 12,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: badgeColor,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        tag,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
               ],
             ),
             // Info container (continuous below image)
@@ -1691,27 +1721,29 @@ class _EventCard extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.schedule,
-                        size: 14,
-                        color: Color(0xFF5B6B86),
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          _formatTimeLabel(item.startAt),
-                          style: const TextStyle(
-                            color: Color(0xFF5B6B86),
-                            fontSize: 12,
-                          ),
-                          overflow: TextOverflow.ellipsis,
+                  if (item.locationName != null && item.locationName!.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.location_on,
+                          size: 14,
+                          color: Color(0xFF5B6B86),
                         ),
-                      ),
-                    ],
-                  ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            item.locationName!,
+                            style: const TextStyle(
+                              color: Color(0xFF5B6B86),
+                              fontSize: 12,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),

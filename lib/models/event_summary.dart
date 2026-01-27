@@ -5,6 +5,7 @@ class EventSummary {
   final DateTime? startAt;
   final DateTime? endAt;
   final String? imagePath;
+  final String? tagName;
   final bool hasTickets;
   final bool enrollmentOpen;
 
@@ -15,6 +16,7 @@ class EventSummary {
     this.startAt,
     this.endAt,
     this.imagePath,
+    this.tagName,
     required this.hasTickets,
     required this.enrollmentOpen,
   });
@@ -27,6 +29,7 @@ class EventSummary {
       startAt: _parseDate(json['start_datetime']),
       endAt: _parseDate(json['end_datetime']),
       imagePath: json['image']?.toString(),
+      tagName: json['tag_name']?.toString(),
       hasTickets: _parseBool(json['has_tickets']),
       enrollmentOpen: _parseBool(json['enrollment_open']),
     );
