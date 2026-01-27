@@ -1512,6 +1512,7 @@ class _HomeScreenState extends State<HomeScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: false,
       backgroundColor: Colors.transparent,
       builder: (context) => _EventDetailsModal(item: item),
     );
@@ -2132,185 +2133,227 @@ class _EventDetailsModal extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: DraggableScrollableSheet(
-        initialChildSize: 0.7,
-        minChildSize: 0.5,
-        maxChildSize: 0.95,
-        builder: (context, scrollController) {
-          return SingleChildScrollView(
-            controller: scrollController,
-            padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Drag handle
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    margin: const EdgeInsets.only(bottom: 16),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[300],
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                // Event image
-                if (item.imagePath != null && item.imagePath!.isNotEmpty)
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: Image.network(
-                      item.imagePath!,
-                      height: 200,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => Container(
-                        height: 200,
-                        color: const Color(0xFFE6EEF9),
-                        child: Icon(
-                          item.isEvent ? Icons.event : Icons.local_activity,
-                          size: 60,
-                          color: const Color(0xFF0A2A6B).withOpacity(0.3),
-                        ),
-                      ),
-                    ),
-                  )
-                else
-                  Container(
-                    height: 200,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE6EEF9),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Center(
-                      child: Icon(
-                        item.isEvent ? Icons.event : Icons.local_activity,
-                        size: 80,
-                        color: const Color(0xFF0A2A6B).withOpacity(0.3),
-                      ),
-                    ),
-                  ),
-                const SizedBox(height: 20),
-                // Badge
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: item.isEvent ? const Color(0xFF0A2A6B) : const Color(0xFF16A085),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    item.isEvent ? 'Evento' : 'Actividad',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                // Title
-                Text(
-                  item.title,
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF0F1B2D),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                // Date and time
-                _InfoRow(
-                  icon: Icons.calendar_today,
-                  label: _formatFullDate(item.startAt),
-                ),
-                const SizedBox(height: 8),
-                _InfoRow(
-                  icon: Icons.schedule,
-                  label: _formatTimeRange(item.startAt, item.endAt),
-                ),
-                // Tags
-                if (item.tags.isNotEmpty) ...[
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Categorías',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF0F1B2D),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: item.tags.map((tag) {
-                      return Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFE6EEF9),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: const Color(0xFF0A2A6B).withOpacity(0.2),
-                          ),
-                        ),
-                        child: Text(
-                          tag,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: Color(0xFF0A2A6B),
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ],
-                const SizedBox(height: 20),
-                const Divider(),
-                const SizedBox(height: 16),
-                // Description
-                const Text(
-                  'Descripción',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF0F1B2D),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  item.description ?? 'Sin descripción disponible.',
-                  style: const TextStyle(
-                    fontSize: 15,
-                    color: Color(0xFF5B6B86),
-                    height: 1.5,
-                  ),
-                ),
-                const SizedBox(height: 32),
-                // Close button
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF0A2A6B),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: const Text('Cerrar'),
-                  ),
+    return DraggableScrollableSheet(
+      initialChildSize: 0.75,
+      minChildSize: 0.5,
+      maxChildSize: 0.95,
+      builder: (context, scrollController) {
+        return Container(
+          margin: const EdgeInsets.only(top: 12),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            child: CustomScrollView(
+              controller: scrollController,
+              slivers: [
+                _buildSliverAppBar(context),
+                SliverToBoxAdapter(
+                  child: _buildContent(context),
                 ),
               ],
             ),
-          );
-        },
+          ),
+        );
+      },
+    );
+  }
+
+  SliverAppBar _buildSliverAppBar(BuildContext context) {
+    return SliverAppBar(
+      pinned: true,
+      stretch: true,
+      expandedHeight: 240,
+      backgroundColor: Colors.white,
+      automaticallyImplyLeading: false,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      flexibleSpace: FlexibleSpaceBar(
+        stretchModes: const [
+          StretchMode.zoomBackground,
+          StretchMode.fadeTitle,
+        ],
+        background: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (item.imagePath != null && item.imagePath!.isNotEmpty)
+              Image.network(
+                item.imagePath!,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => Container(
+                  color: const Color(0xFFE6EEF9),
+                  child: Icon(
+                    item.isEvent ? Icons.event : Icons.local_activity,
+                    size: 80,
+                    color: const Color(0xFF0A2A6B).withOpacity(0.3),
+                  ),
+                ),
+              )
+            else
+              Container(
+                color: const Color(0xFFE6EEF9),
+                child: Icon(
+                  item.isEvent ? Icons.event : Icons.local_activity,
+                  size: 80,
+                  color: const Color(0xFF0A2A6B).withOpacity(0.3),
+                ),
+              ),
+            // Gradient overlay
+            Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.black38,
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(24),
+        child: Container(
+          alignment: Alignment.center,
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.8),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContent(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Badge
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: item.isEvent ? const Color(0xFF0A2A6B) : const Color(0xFF16A085),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              item.isEvent ? 'Evento' : 'Actividad',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Title
+          Text(
+            item.title,
+            style: const TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF0F1B2D),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          _InfoRow(
+            icon: Icons.calendar_today,
+            label: _formatFullDate(item.startAt),
+          ),
+          const SizedBox(height: 8),
+          _InfoRow(
+            icon: Icons.schedule,
+            label: _formatTimeRange(item.startAt, item.endAt),
+          ),
+
+          if (item.tags.isNotEmpty) ...[
+            const SizedBox(height: 20),
+            const Text(
+              'Categorías',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: item.tags.map((tag) {
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE6EEF9),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: const Color(0xFF0A2A6B).withOpacity(0.2),
+                    ),
+                  ),
+                  child: Text(
+                    tag,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF0A2A6B),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+
+          const SizedBox(height: 24),
+          const Divider(),
+          const SizedBox(height: 16),
+
+          const Text(
+            'Descripción',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            item.description ?? 'Sin descripción disponible.',
+            style: const TextStyle(
+              fontSize: 15,
+              height: 1.5,
+              color: Color(0xFF5B6B86),
+            ),
+          ),
+
+          const SizedBox(height: 32),
+
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: () => Navigator.pop(context),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF0A2A6B),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text('Cerrar'),
+            ),
+          ),
+        ],
       ),
     );
   }
