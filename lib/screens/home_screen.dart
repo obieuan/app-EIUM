@@ -832,35 +832,57 @@ class _HomeScreenState extends State<HomeScreen> {
         .length;
     final requirement = _weeklyRequirement > 0 ? _weeklyRequirement : 1;
 
-    return _InfoCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _InfoCard(
+          child: Text(
             'Completa $completedWeekly de $requirement retos para ganar Antorcha.',
             style: const TextStyle(
               color: Color(0xFF2C3A52),
               fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 12),
-          ..._weeklyChallenges.map((challenge) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: _WeeklyChallengeTile(
-                challenge: challenge,
-                onCheckin: challenge.isCheckin && !challenge.isCompleted
-                    ? () => _handleCheckin(challenge)
-                    : null,
-                onClaim: challenge.isCompleted && !_claimedChallengeIds.contains(challenge.id)
-                    ? () => _handleClaim(challenge)
-                    : null,
-                isCheckingIn: _isCheckingIn,
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 200,
+          child: PageView.builder(
+            itemCount: _weeklyChallenges.length,
+            padEnds: false,
+            controller: PageController(viewportFraction: 0.92),
+            itemBuilder: (context, index) {
+              final challenge = _weeklyChallenges[index];
+              return Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: _WeeklyChallengeTile(
+                  challenge: challenge,
+                  onCheckin: challenge.isCheckin && !challenge.isCompleted
+                      ? () => _handleCheckin(challenge)
+                      : null,
+                  onClaim: challenge.isCompleted && !_claimedChallengeIds.contains(challenge.id)
+                      ? () => _handleClaim(challenge)
+                      : null,
+                  isCheckingIn: _isCheckingIn,
+                ),
+              );
+            },
+          ),
+        ),
+        if (_weeklyChallenges.length > 1) ...[
+          const SizedBox(height: 8),
+          Center(
+            child: Text(
+              'Desliza para ver más retos',
+              style: TextStyle(
+                color: const Color(0xFF5B6B86).withOpacity(0.6),
+                fontSize: 12,
+                fontStyle: FontStyle.italic,
               ),
-            );
-          }),
+            ),
+          ),
         ],
-      ),
+      ],
     );
   }
 
