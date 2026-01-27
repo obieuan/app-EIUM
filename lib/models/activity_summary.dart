@@ -5,9 +5,8 @@ class ActivitySummary {
   final DateTime? startAt;
   final DateTime? endAt;
   final String? imagePath;
-  final String? locationName;
   final String? eventTitle;
-  final String? typeName;
+  final List<String> tags;
   final bool registrationOpen;
   final bool isOnline;
 
@@ -18,9 +17,8 @@ class ActivitySummary {
     this.startAt,
     this.endAt,
     this.imagePath,
-    this.locationName,
     this.eventTitle,
-    this.typeName,
+    this.tags = const [],
     required this.registrationOpen,
     required this.isOnline,
   });
@@ -33,12 +31,24 @@ class ActivitySummary {
       startAt: _parseDate(json['start_datetime']),
       endAt: _parseDate(json['end_datetime']),
       imagePath: json['image']?.toString(),
-      locationName: json['location_name']?.toString(),
       eventTitle: json['event_title']?.toString(),
-      typeName: json['type_name']?.toString(),
+      tags: _parseTags(json['tags']),
       registrationOpen: _parseBool(json['registration_open']),
       isOnline: _parseBool(json['is_online']),
     );
+  }
+
+  static List<String> _parseTags(dynamic value) {
+    if (value == null) {
+      return [];
+    }
+    if (value is List) {
+      return value.map((e) => e.toString()).toList();
+    }
+    if (value is String && value.isNotEmpty) {
+      return value.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+    }
+    return [];
   }
 
   static DateTime? _parseDate(dynamic value) {

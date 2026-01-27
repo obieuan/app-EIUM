@@ -1592,7 +1592,7 @@ class _EventCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tag = item.tagName ?? (item.isEvent ? 'Evento' : 'Actividad');
+    final badge = item.isEvent ? 'Evento' : 'Actividad';
     final badgeColor = item.isEvent ? const Color(0xFF0A2A6B) : const Color(0xFF16A085);
 
     return GestureDetector(
@@ -1673,27 +1673,26 @@ class _EventCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                // Tag badge (top right)
-                if (tag.isNotEmpty)
-                  Positioned(
-                    top: 12,
-                    right: 12,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: badgeColor,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        tag,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                        ),
+                // Type badge (top right)
+                Positioned(
+                  top: 12,
+                  right: 12,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: badgeColor,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      badge,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
+                ),
               ],
             ),
             // Info container (continuous below image)
@@ -1707,44 +1706,15 @@ class _EventCard extends StatelessWidget {
                   bottomRight: Radius.circular(18),
                 ),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    item.title,
-                    style: const TextStyle(
-                      color: Color(0xFF0F1B2D),
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  if (item.locationName != null && item.locationName!.isNotEmpty) ...[
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.location_on,
-                          size: 14,
-                          color: Color(0xFF5B6B86),
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            item.locationName!,
-                            style: const TextStyle(
-                              color: Color(0xFF5B6B86),
-                              fontSize: 12,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ],
+              child: Text(
+                item.title,
+                style: const TextStyle(
+                  color: Color(0xFF0F1B2D),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ],
@@ -2263,11 +2233,41 @@ class _EventDetailsModal extends StatelessWidget {
                   icon: Icons.schedule,
                   label: _formatTimeRange(item.startAt, item.endAt),
                 ),
-                if (item.locationName != null && item.locationName!.isNotEmpty) ...[
+                // Tags
+                if (item.tags.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Categorías',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF0F1B2D),
+                    ),
+                  ),
                   const SizedBox(height: 8),
-                  _InfoRow(
-                    icon: Icons.location_on,
-                    label: item.locationName!,
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: item.tags.map((tag) {
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE6EEF9),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: const Color(0xFF0A2A6B).withOpacity(0.2),
+                          ),
+                        ),
+                        child: Text(
+                          tag,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF0A2A6B),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      );
+                    }).toList(),
                   ),
                 ],
                 const SizedBox(height: 20),

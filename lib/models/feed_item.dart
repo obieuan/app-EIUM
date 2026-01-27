@@ -6,8 +6,7 @@ class FeedItem {
   final DateTime? startAt;
   final DateTime? endAt;
   final String? imagePath;
-  final String? locationName;
-  final String? tagName;
+  final List<String> tags;
   final bool registrationOpen; // for activities
   final bool enrollmentOpen; // for events
   final bool hasTickets; // for events
@@ -20,8 +19,7 @@ class FeedItem {
     this.startAt,
     this.endAt,
     this.imagePath,
-    this.locationName,
-    this.tagName,
+    this.tags = const [],
     this.registrationOpen = false,
     this.enrollmentOpen = false,
     this.hasTickets = false,
@@ -37,7 +35,7 @@ class FeedItem {
       startAt: eventSummary.startAt,
       endAt: eventSummary.endAt,
       imagePath: eventSummary.imagePath,
-      tagName: eventSummary.tagName,
+      tags: eventSummary.tags ?? [],
       enrollmentOpen: eventSummary.enrollmentOpen,
       hasTickets: eventSummary.hasTickets,
     );
@@ -53,8 +51,7 @@ class FeedItem {
       startAt: activitySummary.startAt,
       endAt: activitySummary.endAt,
       imagePath: activitySummary.imagePath,
-      locationName: activitySummary.locationName,
-      tagName: activitySummary.typeName,
+      tags: activitySummary.tags ?? [],
       registrationOpen: activitySummary.registrationOpen,
     );
   }
