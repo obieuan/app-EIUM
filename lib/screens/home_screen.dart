@@ -474,7 +474,7 @@ class _HomeScreenState extends State<HomeScreen> {
           onPurchase: _loadDashboard,
         );
       case 3:
-        return _buildPlaceholderTab('Pase');
+        return _buildPassScreen();
       default:
         return _buildDashboardContent(profile, hurraBalance, antorchaBalance);
     }
@@ -499,10 +499,6 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 18),
             _buildCoins(hurraBalance, antorchaBalance),
             const SizedBox(height: 20),
-            _buildSectionTitle('Retos semanales'),
-            const SizedBox(height: 12),
-            _buildWeeklyChallengesSection(),
-            const SizedBox(height: 28),
             _buildSectionTitle('Hoy'),
             const SizedBox(height: 12),
             _buildTodaySection(_todayItems),
@@ -883,6 +879,217 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ],
+    );
+  }
+
+  Widget _buildPassScreen() {
+    final completedWeekly = _weeklyChallenges
+        .where((challenge) => challenge.countsForWeekly && challenge.isCompleted)
+        .length;
+    final requirement = _weeklyRequirement > 0 ? _weeklyRequirement : 1;
+
+    // Progress value between 0.0 and 1.0 (currently hardcoded at 0.5)
+    final progressValue = 0.5;
+
+    return RefreshIndicator(
+      onRefresh: _loadDashboard,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 120),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildTopBar(),
+            const SizedBox(height: 20),
+            // Torch Icon in Hexagon
+            Center(
+              child: Container(
+                width: 140,
+                height: 140,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Color(0xFF4A7BD9),
+                      Color(0xFF0A2A6B),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF0A2A6B).withOpacity(0.3),
+                      blurRadius: 20,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.local_fire_department,
+                  size: 80,
+                  color: Color(0xFFFFB800),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            // Season Title
+            const Center(
+              child: Text(
+                'Temporada 1',
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF0F1B2D),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            // Motivational Subtitle
+            Center(
+              child: Text(
+                'Completa retos, gana Hurras,\nparticipa activamente',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 15,
+                  color: const Color(0xFF5B6B86).withOpacity(0.9),
+                  height: 1.4,
+                ),
+              ),
+            ),
+            const SizedBox(height: 32),
+            // Progress Bar Section
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: const Color(0xFFE3E7F0)),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x12000000),
+                    blurRadius: 10,
+                    offset: Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  // Progress value label
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1D76F2),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Text(
+                      '$completedWeekly / $requirement',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  // Progress bar
+                  Stack(
+                    children: [
+                      Container(
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE3E7F0),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                      ),
+                      FractionallySizedBox(
+                        widthFactor: progressValue,
+                        child: Container(
+                          height: 12,
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [
+                                Color(0xFF1D76F2),
+                                Color(0xFF0A2A6B),
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  // Progress labels
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        '0',
+                        style: TextStyle(
+                          color: Color(0xFF5B6B86),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.local_fire_department,
+                            color: Color(0xFFFFB800),
+                            size: 20,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            requirement.toString(),
+                            style: const TextStyle(
+                              color: Color(0xFF5B6B86),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 32),
+            // Divider
+            const Divider(color: Color(0xFFE3E7F0), thickness: 1),
+            const SizedBox(height: 24),
+            // Weekly Challenges Section
+            _buildSectionTitle('Retos semanales'),
+            const SizedBox(height: 16),
+            if (_weeklyChallenges.isEmpty)
+              _InfoCard(
+                child: Text(
+                  'Aun no tienes retos asignados.',
+                  style: const TextStyle(
+                    color: Color(0xFF5B6B86),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              )
+            else
+              ..._weeklyChallenges.map((challenge) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _WeeklyChallengeTile(
+                    challenge: challenge,
+                    onCheckin: challenge.isCheckin && !challenge.isCompleted
+                        ? () => _handleCheckin(challenge)
+                        : null,
+                    onClaim: challenge.isCompleted && !_claimedChallengeIds.contains(challenge.id)
+                        ? () => _handleClaim(challenge)
+                        : null,
+                    isCheckingIn: _isCheckingIn,
+                  ),
+                );
+              }),
+          ],
+        ),
+      ),
     );
   }
 
