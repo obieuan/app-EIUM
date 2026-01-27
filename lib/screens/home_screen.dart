@@ -1599,139 +1599,120 @@ class _EventCard extends StatelessWidget {
       onTap: onTap,
       child: Container(
         width: 200,
-        margin: const EdgeInsets.only(bottom: 50), // Space for overlapping container
-        child: Stack(
-          clipBehavior: Clip.none,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x1A000000),
+              blurRadius: 12,
+              offset: Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // Image container with overlay gradient
-            Container(
-              height: 160,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(18),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x1A000000),
-                    blurRadius: 12,
-                    offset: Offset(0, 8),
+            // Image container
+            Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(18),
+                    topRight: Radius.circular(18),
                   ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(18),
-                child: Stack(
-                  children: [
-                    // Background image
-                    Container(
-                      height: 160,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF0A2A6B),
-                        image: item.imagePath != null && item.imagePath!.isNotEmpty
-                            ? DecorationImage(
-                                image: NetworkImage(item.imagePath!),
-                                fit: BoxFit.cover,
-                              )
-                            : null,
-                      ),
-                      child: item.imagePath == null || item.imagePath!.isEmpty
-                          ? Center(
-                              child: Icon(
-                                item.isEvent ? Icons.event : Icons.local_activity,
-                                size: 60,
-                                color: Colors.white.withOpacity(0.3),
-                              ),
+                  child: Container(
+                    height: 140,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0A2A6B),
+                      image: item.imagePath != null && item.imagePath!.isNotEmpty
+                          ? DecorationImage(
+                              image: NetworkImage(item.imagePath!),
+                              fit: BoxFit.cover,
                             )
                           : null,
                     ),
-                    // Gradient overlay
-                    Container(
-                      height: 160,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.transparent,
-                            Colors.black.withOpacity(0.7),
-                          ],
-                        ),
+                    child: item.imagePath == null || item.imagePath!.isEmpty
+                        ? Center(
+                            child: Icon(
+                              item.isEvent ? Icons.event : Icons.local_activity,
+                              size: 60,
+                              color: Colors.white.withOpacity(0.3),
+                            ),
+                          )
+                        : null,
+                  ),
+                ),
+                // Badge
+                Positioned(
+                  top: 12,
+                  right: 12,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: badgeColor,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      badge,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                    // Badge
-                    Positioned(
-                      top: 12,
-                      right: 12,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: badgeColor,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          badge,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
+                ),
+              ],
+            ),
+            // Info container (continuous below image)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.only(
+                  bottomLeft: Radius.circular(18),
+                  bottomRight: Radius.circular(18),
                 ),
               ),
-            ),
-            // Info container (overlapping at bottom)
-            Positioned(
-              bottom: -40,
-              left: 12,
-              right: 12,
-              child: Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(14),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x12000000),
-                      blurRadius: 8,
-                      offset: Offset(0, 4),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    item.title,
+                    style: const TextStyle(
+                      color: Color(0xFF0F1B2D),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
                     ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      item.title,
-                      style: const TextStyle(
-                        color: Color(0xFF0F1B2D),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.schedule,
+                        size: 14,
+                        color: Color(0xFF5B6B86),
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.schedule,
-                          size: 14,
-                          color: Color(0xFF5B6B86),
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
                           _formatTimeLabel(item.startAt),
                           style: const TextStyle(
                             color: Color(0xFF5B6B86),
                             fontSize: 12,
                           ),
+                          overflow: TextOverflow.ellipsis,
                         ),
-                      ],
-                    ),
-                  ],
-                ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ],
