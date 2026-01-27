@@ -1096,23 +1096,21 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildTodaySection(List<FeedItem> items) {
     if (items.isEmpty) {
       return SizedBox(
-        height: 180,
-        child: ListView(
-          scrollDirection: Axis.horizontal,
-          children: const [
-            _EventCard(
-              title: 'Sin eventos ni actividades',
-              dateLabel: 'Hoy',
-              points: 0,
-              highlight: false,
+        height: 200,
+        child: Center(
+          child: Text(
+            'Sin eventos ni actividades',
+            style: TextStyle(
+              color: const Color(0xFF5B6B86).withOpacity(0.7),
+              fontSize: 14,
             ),
-          ],
+          ),
         ),
       );
     }
 
     return SizedBox(
-      height: 180,
+      height: 220,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: items.length,
@@ -1120,13 +1118,8 @@ class _HomeScreenState extends State<HomeScreen> {
         itemBuilder: (context, index) {
           final item = items[index];
           return _EventCard(
-            title: item.title,
-            dateLabel: _formatTimeLabel(item.startAt),
-            subtitle: item.locationName,
-            badge: item.isEvent ? 'Evento' : 'Actividad',
-            badgeColor: item.isEvent ? const Color(0xFF0A2A6B) : const Color(0xFF16A085),
-            points: 0,
-            highlight: index == 0,
+            item: item,
+            onTap: () => _showEventDetails(item),
           );
         },
       ),
@@ -1144,43 +1137,31 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildUpcomingSection(List<FeedItem> items) {
     if (items.isEmpty) {
-      return Row(
-        children: const [
-          Expanded(
-            child: _EventTile(
-              dateLabel: '--',
-              title: 'Sin próximos eventos',
-              points: 0,
-            ),
+      return Center(
+        child: Text(
+          'Sin próximos eventos',
+          style: TextStyle(
+            color: const Color(0xFF5B6B86).withOpacity(0.7),
+            fontSize: 14,
           ),
-        ],
+        ),
       );
     }
 
-    final tiles = items.take(2).toList();
-    return Row(
-      children: [
-        Expanded(
-          child: _EventTile(
-            dateLabel: _formatDateLabel(tiles.first.startAt),
-            title: tiles.first.title,
-            badge: tiles.first.isEvent ? 'Evento' : 'Actividad',
-            points: 0,
-          ),
-        ),
-        if (tiles.length > 1) ...[
-          const SizedBox(width: 12),
-          Expanded(
-            child: _EventTile(
-              dateLabel: _formatDateLabel(tiles.last.startAt),
-              title: tiles.last.title,
-              badge: tiles.last.isEvent ? 'Evento' : 'Actividad',
-              accentColor: const Color(0xFF7DD56F),
-              points: 0,
-            ),
-          ),
-        ],
-      ],
+    return SizedBox(
+      height: 220,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: items.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 14),
+        itemBuilder: (context, index) {
+          final item = items[index];
+          return _EventCard(
+            item: item,
+            onTap: () => _showEventDetails(item),
+          );
+        },
+      ),
     );
   }
 
@@ -1526,6 +1507,15 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+
+  void _showEventDetails(FeedItem item) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _EventDetailsModal(item: item),
+    );
+  }
 }
 
 class _ProfileAvatar extends StatelessWidget {
@@ -1592,149 +1582,167 @@ class _CoinChip extends StatelessWidget {
 }
 
 class _EventCard extends StatelessWidget {
-  final String title;
-  final String dateLabel;
-  final String? subtitle;
-  final String? badge;
-  final Color? badgeColor;
-  final int points;
-  final bool highlight;
+  final FeedItem item;
+  final VoidCallback? onTap;
 
   const _EventCard({
-    required this.title,
-    required this.dateLabel,
-    this.subtitle,
-    this.badge,
-    this.badgeColor,
-    required this.points,
-    required this.highlight,
+    required this.item,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final color = highlight ? const Color(0xFF0A2A6B) : const Color(0xFF122F66);
-    final textColor = highlight ? Colors.white : const Color(0xFFD7E2F7);
+    final badge = item.isEvent ? 'Evento' : 'Actividad';
+    final badgeColor = item.isEvent ? const Color(0xFF0A2A6B) : const Color(0xFF16A085);
 
-    return Container(
-      width: 240,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            const Color(0xFF1B2B4E),
-            color,
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 200,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x1A000000),
+              blurRadius: 12,
+              offset: Offset(0, 8),
+            ),
           ],
         ),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x1A000000),
-            blurRadius: 12,
-            offset: Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-            top: 14,
-            left: 14,
-            child: _DateBadge(label: dateLabel),
-          ),
-          if (badge != null)
-            Positioned(
-              top: 14,
-              right: 14,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: badgeColor ?? const Color(0xFF0A2A6B),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  badge!,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            // Image container with overlay gradient
+            ClipRRect(
+              borderRadius: BorderRadius.circular(18),
+              child: Stack(
+                children: [
+                  // Background image
+                  Container(
+                    height: 160,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0A2A6B),
+                      image: item.imagePath != null && item.imagePath!.isNotEmpty
+                          ? DecorationImage(
+                              image: NetworkImage(item.imagePath!),
+                              fit: BoxFit.cover,
+                            )
+                          : null,
+                    ),
+                    child: item.imagePath == null || item.imagePath!.isEmpty
+                        ? Center(
+                            child: Icon(
+                              item.isEvent ? Icons.event : Icons.local_activity,
+                              size: 60,
+                              color: Colors.white.withOpacity(0.3),
+                            ),
+                          )
+                        : null,
                   ),
-                ),
+                  // Gradient overlay
+                  Container(
+                    height: 160,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          Colors.black.withOpacity(0.7),
+                        ],
+                      ),
+                    ),
+                  ),
+                  // Badge
+                  Positioned(
+                    top: 12,
+                    right: 12,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: badgeColor,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        badge,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-          Positioned(
-            bottom: 18,
-            left: 16,
-            right: 16,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (subtitle != null && subtitle!.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 6),
-                    child: Row(
+            // Info container (overlapping at bottom)
+            Positioned(
+              bottom: -40,
+              left: 12,
+              right: 12,
+              child: Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x12000000),
+                      blurRadius: 8,
+                      offset: Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      item.title,
+                      style: const TextStyle(
+                        color: Color(0xFF0F1B2D),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
                       children: [
-                        Icon(
-                          Icons.location_on,
+                        const Icon(
+                          Icons.schedule,
                           size: 14,
-                          color: textColor.withOpacity(0.7),
+                          color: Color(0xFF5B6B86),
                         ),
                         const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            subtitle!,
-                            style: TextStyle(
-                              color: textColor.withOpacity(0.7),
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                        Text(
+                          _formatTimeLabel(item.startAt),
+                          style: const TextStyle(
+                            color: Color(0xFF5B6B86),
+                            fontSize: 12,
                           ),
                         ),
                       ],
                     ),
-                  ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: TextStyle(
-                          color: textColor,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    if (points > 0)
-                      Padding(
-                        padding: const EdgeInsets.only(left: 8),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.local_fire_department,
-                                color: Colors.white, size: 18),
-                            const SizedBox(width: 4),
-                            Text(
-                              points.toString(),
-                              style: const TextStyle(color: Colors.white),
-                            ),
-                          ],
-                        ),
-                      ),
                   ],
                 ),
-              ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
+  }
+
+  String _formatTimeLabel(DateTime? date) {
+    if (date == null) return '--';
+    final hour = date.hour;
+    final minute = date.minute.toString().padLeft(2, '0');
+    final period = hour >= 12 ? 'pm' : 'am';
+    final displayHour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
+    return '$displayHour:$minute $period';
   }
 }
 
@@ -2126,6 +2134,233 @@ class _SoftCircle extends StatelessWidget {
         color: color,
         shape: BoxShape.circle,
       ),
+    );
+  }
+}
+
+class _EventDetailsModal extends StatelessWidget {
+  final FeedItem item;
+
+  const _EventDetailsModal({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        builder: (context, scrollController) {
+          return SingleChildScrollView(
+            controller: scrollController,
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Drag handle
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 20),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                // Event image
+                if (item.imagePath != null && item.imagePath!.isNotEmpty)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Image.network(
+                      item.imagePath!,
+                      height: 200,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => Container(
+                        height: 200,
+                        color: const Color(0xFFE6EEF9),
+                        child: Icon(
+                          item.isEvent ? Icons.event : Icons.local_activity,
+                          size: 60,
+                          color: const Color(0xFF0A2A6B).withOpacity(0.3),
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  Container(
+                    height: 200,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE6EEF9),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Center(
+                      child: Icon(
+                        item.isEvent ? Icons.event : Icons.local_activity,
+                        size: 80,
+                        color: const Color(0xFF0A2A6B).withOpacity(0.3),
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 20),
+                // Badge
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: item.isEvent ? const Color(0xFF0A2A6B) : const Color(0xFF16A085),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    item.isEvent ? 'Evento' : 'Actividad',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                // Title
+                Text(
+                  item.title,
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF0F1B2D),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // Date and time
+                _InfoRow(
+                  icon: Icons.calendar_today,
+                  label: _formatFullDate(item.startAt),
+                ),
+                const SizedBox(height: 8),
+                _InfoRow(
+                  icon: Icons.schedule,
+                  label: _formatTimeRange(item.startAt, item.endAt),
+                ),
+                if (item.locationName != null && item.locationName!.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  _InfoRow(
+                    icon: Icons.location_on,
+                    label: item.locationName!,
+                  ),
+                ],
+                const SizedBox(height: 20),
+                const Divider(),
+                const SizedBox(height: 16),
+                // Description
+                const Text(
+                  'Descripción',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF0F1B2D),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  item.description ?? 'Sin descripción disponible.',
+                  style: const TextStyle(
+                    fontSize: 15,
+                    color: Color(0xFF5B6B86),
+                    height: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 32),
+                // Close button
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF0A2A6B),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text('Cerrar'),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  String _formatFullDate(DateTime? date) {
+    if (date == null) return '--';
+    const months = [
+      'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+    ];
+    return '${date.day} de ${months[date.month - 1]}, ${date.year}';
+  }
+
+  String _formatTimeRange(DateTime? start, DateTime? end) {
+    if (start == null) return '--';
+    final startTime = _formatTime(start);
+    if (end == null) return startTime;
+    final endTime = _formatTime(end);
+    return '$startTime - $endTime';
+  }
+
+  String _formatTime(DateTime date) {
+    final hour = date.hour;
+    final minute = date.minute.toString().padLeft(2, '0');
+    final period = hour >= 12 ? 'pm' : 'am';
+    final displayHour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
+    return '$displayHour:$minute $period';
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _InfoRow({
+    required this.icon,
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: const Color(0xFFE6EEF9),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
+            icon,
+            size: 18,
+            color: const Color(0xFF0A2A6B),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 15,
+              color: Color(0xFF2C3A52),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

@@ -1,6 +1,7 @@
 class ActivitySummary {
   final int id;
   final String title;
+  final String? description;
   final DateTime? startAt;
   final DateTime? endAt;
   final String? imagePath;
@@ -13,6 +14,7 @@ class ActivitySummary {
   const ActivitySummary({
     required this.id,
     required this.title,
+    this.description,
     this.startAt,
     this.endAt,
     this.imagePath,
@@ -27,6 +29,7 @@ class ActivitySummary {
     return ActivitySummary(
       id: _parseInt(json['id']),
       title: (json['title'] ?? '').toString(),
+      description: json['description']?.toString(),
       startAt: _parseDate(json['start_datetime']),
       endAt: _parseDate(json['end_datetime']),
       imagePath: json['image']?.toString(),
